@@ -3,7 +3,7 @@ import asyncio
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from src.utils import get_bot_token, load_managers
+from src.utils import get_bot_token
 from src.commands import user, manager
 
 TOKEN = get_bot_token()
