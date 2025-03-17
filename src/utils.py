@@ -2,9 +2,9 @@ import os
 from dotenv import load_dotenv
 import json
 
-'''
+"""
 Функция для получения токена бота из .env файла
-'''
+"""
 def get_bot_token() -> str:
     load_dotenv()
     token = os.getenv("BOT_TOKEN")
@@ -14,9 +14,9 @@ def get_bot_token() -> str:
         raise ValueError("BOT_TOKEN отсутствует в файле .env")
     return token
 
-'''
-Функция для получения id менеджеров из json
-'''
+"""
+Функция для проверки наличия прав менеджера у пользователя
+"""
 MANAGERS = None
 def is_manager(chat_id: int, file_path: str = "managers.json") -> bool:
     global MANAGERS
