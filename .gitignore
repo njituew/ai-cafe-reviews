@@ -1,6 +1,9 @@
 # macos moment
 **/.DS_Store
 
+# telegram id
+managers.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

@@ -3,15 +3,16 @@ import asyncio
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from src.utils import get_bot_token
-from src.commands import default
+from src.utils import get_bot_token, load_managers
+from src.commands import user, manager
 
 TOKEN = get_bot_token()
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
-dp.message.register(default)
+manager.register_handlers(dp)
+user.register_handlers(dp)
 
 async def main():
     await dp.start_polling(bot)
