@@ -18,7 +18,7 @@ def get_bot_token() -> str:
 Функция для получения id менеджеров из json
 '''
 MANAGERS = None
-def load_managers(file_path: str = "managers.json") -> set[int]:
+def is_manager(chat_id: int, file_path: str = "managers.json") -> bool:
     global MANAGERS
     if MANAGERS is None:
         try:
@@ -28,4 +28,5 @@ def load_managers(file_path: str = "managers.json") -> set[int]:
         except FileNotFoundError as e:
             print(f"Error loading managers: {e}")
             MANAGERS = set()
-    return MANAGERS
+    
+    return chat_id in MANAGERS
