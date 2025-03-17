@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 import json
+from src.logger import logger
 
 """
 Функция для получения токена бота из .env файла
@@ -11,7 +12,9 @@ def get_bot_token() -> str:
 
     # Проверка токена
     if not token:
-        raise ValueError("BOT_TOKEN отсутствует в файле .env")
+        logger.critical("BOT_TOKEN is missing in the environment")
+        raise ValueError("BOT_TOKEN is missing in the environment")
+    logger.info("BOT_TOKEN loaded")
     return token
 
 """
@@ -26,7 +29,11 @@ def is_manager(chat_id: int, file_path: str = "managers.json") -> bool:
                 data = json.load(f)["managers"]
                 MANAGERS = {manager["chat_id"] for manager in data}
         except FileNotFoundError as e:
-            print(f"Error loading managers: {e}")
+            logger.error(f"Error loading managers: {e}")
             MANAGERS = set()
+        if not MANAGERS:
+            logger.warning("There are no managers")
+        else:
+            logger.info("Managers loaded")
     
     return chat_id in MANAGERS
