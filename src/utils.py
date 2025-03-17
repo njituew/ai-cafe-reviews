@@ -19,13 +19,13 @@ def get_bot_token() -> str:
 '''
 MANAGERS = None
 def load_managers(file_path: str = "managers.json") -> set[int]:
-    if MANAGERS is not None:
-        return MANAGERS
-    else:
+    global MANAGERS
+    if MANAGERS is None:
         try:
             with open(file_path, "r") as f:
-                managers = json.load(f)["managers"]
-                return {manager["chat_id"] for manager in managers}
+                data = json.load(f)["managers"]
+                MANAGERS = {manager["chat_id"] for manager in data}
         except FileNotFoundError as e:
             print(f"Error loading managers: {e}")
-            return set()
+            MANAGERS = set()
+    return MANAGERS
