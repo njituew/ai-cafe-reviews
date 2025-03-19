@@ -1,11 +1,13 @@
-import os
 import io
+import asyncio
 
 from aiogram import types, F, Bot
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+from src.voice_processing import speech_to_text
 
 class ReviewForm(StatesGroup):
     user_name = State()
@@ -90,30 +92,40 @@ async def process_rating(callback: types.CallbackQuery, state: FSMContext):
 async def process_review(message: types.Message, state: FSMContext, bot: Bot):
     if message.text:
         await state.update_data(review=message.text)
+
+        data = await state.get_data()
+
+        asyncio.create_task(save_data(data, None))
+
+        await state.clear()
     elif message.voice:
         voice_file = await bot.get_file(message.voice.file_id)
+        file_path = voice_file.file_path
+        
         buf = io.BytesIO()
-
-        await voice_file.download(out=buf)
-
+        await bot.download_file(file_path, destination=buf)
         buf.name = "voice.oga"
         buf.seek(0)
+        
+        data = await state.get_data()
 
-        # process voice file and save tonal
+        asyncio.create_task(save_data(data, buf))
 
-        await state.update_data(review=f"Голосовое сообщение")
+        await state.clear()
     else:
         await message.answer("Пожалуйста, отправьте текст или голосовое сообщение.")
         return
     
-    save_data(await state.get_data())
-    
     await message.answer("Спасибо за отзыв!")
-    await state.clear()
 
 
-def save_data(data):
-    print(data) # save to db
+async def save_data(data: dict, audio: io.BytesIO | None):
+    if audio:
+        review_text = await speech_to_text(audio)
+        review_tonality = "tonality"
+    
+    # Сохранение данных в базу данных
+    
 
 
 def register_handlers(dp):
