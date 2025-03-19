@@ -12,9 +12,10 @@ async def manager_cmd(message: types.Message):
 
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="Динамика удовлетворённости 📈")],
-            [KeyboardButton(text="Дашборд 💩"), KeyboardButton(text="Непрочитанные отзывы 🗣️")],
-            [KeyboardButton(text="Профиль менеджера 👩‍💼")]
+            [KeyboardButton(text="Непрочитанные отзывы 🗣️", callback_data="unread_reviews")],
+            [KeyboardButton(text="Дашборд 💻", callback_data="dashboard"),
+             KeyboardButton(text="Динамика удовлетворённости 📈", callback_data="satisfaction_dynamic")],
+            [KeyboardButton(text="Профиль менеджера 👩‍💼", callback_data="manager_profile")]
         ],
         resize_keyboard=True
     )
