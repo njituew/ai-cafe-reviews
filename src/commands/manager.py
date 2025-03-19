@@ -2,8 +2,7 @@ from aiogram import types, F
 from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from src.utils import is_manager
-from dbtest import get_unreaded_reviews
-
+import dbtest
 
 async def manager_panel(message: types.Message):
     chat_id = message.chat.id
@@ -35,8 +34,7 @@ async def unread_reviews(message: types.Message):
         await message.answer(text, reply_markup=keyboard)
 
 
-async def handle_pagination(callback_query: types.CallbackQuery):
-    
+async def unread_reviews_pagination(callback_query: types.CallbackQuery):
     page = int(callback_query.data.split("_")[2])
 
     text, keyboard = get_reviews_page(page)
@@ -47,16 +45,32 @@ async def handle_pagination(callback_query: types.CallbackQuery):
     await callback_query.answer()
 
 
+async def review(callback_query: types.CallbackQuery):
+    review_id = int(callback_query.data.split("_")[1])
+    review = dbtest.get_review(review_id)
+    await callback_query.message.answer(
+        f"ID: {review['review_id']}"
+        f"\nОтзыв: {review['text']}"
+        f"\nОценка: {review['mark']}"
+        f"\nТональность: {review['tonality']}"
+        f"\nПрочитан: {'Да' if review['readed'] else 'Нет'}",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="Прочитано ✅", callback_data=f"readed_{review_id}")]]
+        )
+    )
+
+
 def register_handlers(dp):
     dp.message.register(manager_panel, Command("manager"))
     dp.message.register(unread_reviews, F.text == "Непрочитанные отзывы 🗣️")
-    dp.callback_query.register(handle_pagination, lambda c: c.data.startswith("prev_page_") or c.data.startswith("next_page_"))
-    
-    
+    dp.callback_query.register(unread_reviews_pagination, lambda c: c.data.startswith("prev_page_") or c.data.startswith("next_page_"))
+    dp.callback_query.register(review, F.data.startswith("review_"))
+
+
 # ================================================ Utils here ================================================
 def get_reviews_page(page: int) -> tuple[str, InlineKeyboardMarkup]:
     reviews_per_page = 5
-    unread_reviews = get_unreaded_reviews()
+    unread_reviews = dbtest.get_unreaded_reviews()
     total_reviews = len(unread_reviews)
     start = page * reviews_per_page
     end = start + reviews_per_page
