@@ -1,10 +1,17 @@
-from aiogram import types, F
+from aiogram import types, F, Dispatcher
 from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from src.utils import is_manager
-import dbtest
+import dbtest   # тестовый модуль имитирующий функции для бд (арс, работаем)
+
 
 async def manager_panel(message: types.Message):
+    """
+    Открывает панель менеджера
+
+    Args:
+        message (types.Message): сообщение
+    """
     chat_id = message.chat.id
     if not is_manager(chat_id):
         await message.answer("Вы не менеджер")
@@ -22,6 +29,12 @@ async def manager_panel(message: types.Message):
 
 
 async def unread_reviews(message: types.Message):
+    """
+    Открывает список непрочитанных отзывов
+
+    Args:
+        message (types.Message): сообщение
+    """
     chat_id = message.chat.id
     if not is_manager(chat_id):
         await message.answer("Вы не менеджер")
@@ -35,6 +48,12 @@ async def unread_reviews(message: types.Message):
 
 
 async def unread_reviews_pagination(callback_query: types.CallbackQuery):
+    """
+    Листает страницы с непрочитанными отзывами
+
+    Args:
+        callback_query (types.CallbackQuery): сообщение
+    """
     page = int(callback_query.data.split("_")[2])
 
     text, keyboard = get_reviews_page(page)
@@ -46,6 +65,12 @@ async def unread_reviews_pagination(callback_query: types.CallbackQuery):
 
 
 async def review(callback_query: types.CallbackQuery):
+    """
+    Показывает один отзыв по его id
+
+    Args:
+        callback_query (types.CallbackQuery): обратный вызов
+    """
     review_id = int(callback_query.data.split("_")[1])
     review = dbtest.get_review(review_id)
     await callback_query.message.answer(
@@ -60,7 +85,13 @@ async def review(callback_query: types.CallbackQuery):
     )
 
 
-def register_handlers(dp):
+def register_handlers(dp: Dispatcher):
+    """
+    Регистрация всех ручек для менеджера
+
+    Args:
+        dp (Dispatcher): диспетчер бота
+    """
     dp.message.register(manager_panel, Command("manager"))
     dp.message.register(unread_reviews, F.text == "Непрочитанные отзывы 🗣️")
     dp.callback_query.register(unread_reviews_pagination, lambda c: c.data.startswith("prev_page_") or c.data.startswith("next_page_"))
@@ -69,6 +100,15 @@ def register_handlers(dp):
 
 # ================================================ Utils here ================================================
 def get_reviews_page(page: int) -> tuple[str, InlineKeyboardMarkup]:
+    """
+    Рендерит клавиатуру нужной страницы с непрочитанными отзывами
+
+    Args:
+        page (int): номер страницы
+
+    Returns:
+        tuple[str, InlineKeyboardMarkup]: (текст шапки клавиатуры, сама клавиатура)
+    """
     reviews_per_page = 5
     unread_reviews = dbtest.get_unreaded_reviews()
     total_reviews = len(unread_reviews)
