@@ -10,7 +10,7 @@ from src.logger import logger
 TOKEN = get_bot_token()
 
 bot = Bot(token=TOKEN)
-dp = Dispatcher(storage=MemoryStorage())
+dp = Dispatcher(bot=bot, storage=MemoryStorage())
 
 manager.register_handlers(dp)
 user.register_handlers(dp)
