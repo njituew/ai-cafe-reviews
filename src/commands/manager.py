@@ -2,6 +2,8 @@ from aiogram import types, F, Dispatcher
 from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from src.utils import is_manager
+
+from src.logger import logger
 import dbtest   # тестовый модуль имитирующий функции для бд (арс, работаем)
 
 
@@ -12,11 +14,13 @@ async def manager_panel(message: types.Message):
     Args:
         message (types.Message): сообщение
     """
-    chat_id = message.chat.id
-    if not is_manager(chat_id):
+    user_id = message.chat.id
+    if not is_manager(user_id):
         await message.answer("Вы не менеджер")
+        logger.warning(f"Попытка открыть панель менеджера не менеджером: {user_id}")
         return
 
+    logger.info(f"Менеджер {user_id} открыл панель менеджера")
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="Непрочитанные отзывы 🗣️")],
@@ -35,11 +39,13 @@ async def unread_reviews(message: types.Message):
     Args:
         message (types.Message): сообщение
     """
-    chat_id = message.chat.id
-    if not is_manager(chat_id):
+    user_id = message.chat.id
+    if not is_manager(user_id):
         await message.answer("Вы не менеджер")
+        logger.warning(f"Попытка открыть список непрочитанных отзывов не менеджером: {user_id}")
         return
 
+    logger.info(f"Менеджер {user_id} открыл список непрочитанных отзывов")
     text, keyboard = get_reviews_page(0)
     if keyboard is None:
         await message.answer(text)
@@ -72,6 +78,7 @@ async def review(callback_query: types.CallbackQuery):
         callback_query (types.CallbackQuery): обратный вызов
     """
     review_id = int(callback_query.data.split("_")[1])
+    logger.info(f"Менеджер {callback_query.from_user.id} просматривает отзыв {review_id}")
     review = dbtest.get_review(review_id)
     await callback_query.message.answer(
         f"ID: {review['review_id']}"
