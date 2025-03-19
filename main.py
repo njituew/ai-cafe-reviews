@@ -5,7 +5,6 @@ from aiogram.fsm.storage.memory import MemoryStorage
 
 from src.utils import get_bot_token
 from src.commands import user, manager
-from src.logger import logger
 
 TOKEN = get_bot_token()
 
