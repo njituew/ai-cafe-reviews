@@ -116,6 +116,7 @@ def get_reviews_page(page: int, reviews_per_page: int = 5) -> tuple[str, InlineK
     """    
     unread_reviews = dbtest.get_unreaded_reviews()
     total_reviews = len(unread_reviews)
+    total_pages = (total_reviews + reviews_per_page - 1) // reviews_per_page
     start = page * reviews_per_page
     end = start + reviews_per_page
     reviews_to_display = unread_reviews[start:end]
@@ -140,5 +141,5 @@ def get_reviews_page(page: int, reviews_per_page: int = 5) -> tuple[str, InlineK
         buttons.append(navigation_buttons)
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
-    text = f"Непрочитанные отзывы (страница {page + 1}):"
+    text = f"Непрочитанные отзывы (страница {page + 1}/{total_pages}):"
     return text, keyboard
