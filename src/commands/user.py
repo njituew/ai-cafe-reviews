@@ -8,6 +8,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from src.voice_processing import speech_to_text
+from src.review_processing import get_tonality
 
 class ReviewForm(StatesGroup):
     user_name = State()
@@ -43,7 +44,7 @@ async def process_add_review(callback: types.CallbackQuery, state: FSMContext):
 
     await state.set_state(ReviewForm.user_name)
     await callback.message.answer(
-        "Как вас зовут?",
+        "Введите ваше имя:",
         reply_markup=keyboard
     )
     await callback.answer()
@@ -90,14 +91,11 @@ async def process_rating(callback: types.CallbackQuery, state: FSMContext):
 
 
 async def process_review(message: types.Message, state: FSMContext, bot: Bot):
+    review = None
+    data = await state.get_data()
+
     if message.text:
-        await state.update_data(review=message.text)
-
-        data = await state.get_data()
-
-        asyncio.create_task(save_data(data, None))
-
-        await state.clear()
+        review = message.text
     elif message.voice:
         voice_file = await bot.get_file(message.voice.file_id)
         file_path = voice_file.file_path
@@ -106,24 +104,25 @@ async def process_review(message: types.Message, state: FSMContext, bot: Bot):
         await bot.download_file(file_path, destination=buf)
         buf.name = "voice.oga"
         buf.seek(0)
-        
-        data = await state.get_data()
 
-        asyncio.create_task(save_data(data, buf))
-
-        await state.clear()
+        review = buf
     else:
         await message.answer("Пожалуйста, отправьте текст или голосовое сообщение.")
         return
     
     await message.answer("Спасибо за отзыв!")
+    asyncio.create_task(save_data(data, review))
+    await state.clear()
 
 
-async def save_data(data: dict, audio: io.BytesIO | None):
-    if audio:
-        review_text = await speech_to_text(audio)
-        review_tonality = "tonality"
+async def save_data(data: dict, review: io.BytesIO | str):
+    if isinstance(review, io.BytesIO):
+        review_text = await speech_to_text(review)
+    else:
+        review_text = review
     
+    review_tonality = await get_tonality(review_text)
+
     # Сохранение данных в базу данных
     
 
