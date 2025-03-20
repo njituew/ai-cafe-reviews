@@ -7,8 +7,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-from src.voice_processing import speech_to_text
-from src.review_processing import get_tonality
+from src.ai_utils import get_tonality, speech_to_text
+from db1test import reviews, get_user_reviews, delete_review_db, get_review # тестовый модуль имитирующий функции для бд (арс, работаем)
 
 class ReviewForm(StatesGroup):
     user_name = State()
@@ -114,6 +114,7 @@ async def confirm_rating(callback: types.CallbackQuery, state: FSMContext):
 async def process_review(message: types.Message, state: FSMContext, bot: Bot):
     review = None
     data = await state.get_data()
+    data["user_id"] = message.from_user.id
 
     if message.text:
         review = message.text
@@ -136,24 +137,92 @@ async def process_review(message: types.Message, state: FSMContext, bot: Bot):
     await state.clear()
 
 
+async def view_reviews(callback: types.CallbackQuery, state: FSMContext):
+    user_id = callback.from_user.id
+    user_reviews = get_user_reviews(user_id)
+    
+    if not user_reviews:
+        await callback.message.answer("У вас пока нет отзывов.")
+        await callback.answer()
+        return
+    
+    response = "Ваши отзывы:\n"
+    for review in user_reviews:
+        response += f"№{review['review_id']} | Оценка: {review['mark']} | {review['text']}\n\n"
+    
+    await callback.message.answer(response, reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Удалить отзыв", callback_data="delete_review")],
+    ]))
+    await callback.answer()
+
+
+async def delete_review(callback: types.CallbackQuery, state: FSMContext):
+    user_id = callback.from_user.id
+    user_reviews = get_user_reviews(user_id)
+    
+    if not user_reviews:
+        await callback.message.answer("У вас нет отзывов для удаления.")
+        await callback.answer()
+        return
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f"Удалить отзыв №{r['review_id']}", callback_data=f"del_{r['review_id']}")]
+        for r in user_reviews
+    ])
+    await callback.message.answer("Выберите отзыв для удаления:", reply_markup=keyboard)
+    await callback.answer()
+
+
+async def confirm_delete(callback: types.CallbackQuery, state: FSMContext):
+    review_id = int(callback.data.split("_")[1])
+    review = get_review(review_id)
+    
+    if not review:
+        await callback.message.answer("Этот отзыв не найден")
+        await callback.answer()
+        return
+    
+    if delete_review_db(review_id):
+        await callback.message.answer(f"Отзыв успешно удалён!")
+    else:
+        await callback.message.answer("Ошибка при удалении отзыва.")
+    await callback.answer()
+
+
 async def save_data(data: dict, review: io.BytesIO | str):
+    global reviews
     if isinstance(review, io.BytesIO):
         review_text = await speech_to_text(review)
     else:
         review_text = review
     
     review_tonality = await get_tonality(review_text)
-    print(review_text, review_tonality)
-    # Сохранение данных в базу данных
-    
 
+    new_review = {
+        "review_id": len(reviews) + 1,
+        "user_id": data["user_id"],
+        "rating": data["rating"],
+        "text": review_text,
+        "tonality": review_tonality,
+        "readed": False
+    }
+
+    reviews.append(new_review)
+    
 
 def register_handlers(dp):
     dp.message.register(cmd_start, CommandStart())
+
     dp.callback_query.register(process_add_review, F.data == "add_review")
     dp.message.register(process_user_name, ReviewForm.user_name)
     dp.callback_query.register(process_anonymous, F.data == "anonymous")
     dp.callback_query.register(process_rating, F.data.startswith("rating_"))
     dp.callback_query.register(confirm_rating, F.data == "confirm_rating")
     dp.message.register(process_review, ReviewForm.review)
+
+    dp.callback_query.register(view_reviews, F.data == "view_reviews")
+
+    dp.callback_query.register(delete_review, F.data == "delete_review")
+    dp.callback_query.register(confirm_delete, F.data.startswith("del_"))
+
     dp.message.register(default_cmd)
