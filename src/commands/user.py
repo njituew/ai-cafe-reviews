@@ -41,12 +41,8 @@ async def process_add_review(callback: types.CallbackQuery, state: FSMContext):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Остаться анонимным", callback_data="anonymous")]
     ])
-
     await state.set_state(ReviewForm.user_name)
-    await callback.message.answer(
-        "Введите ваше имя:",
-        reply_markup=keyboard
-    )
+    await callback.message.answer("Введите ваше имя:", reply_markup=keyboard)
     await callback.answer()
 
 
@@ -54,39 +50,64 @@ async def process_user_name(message: types.Message, state: FSMContext):
     await state.update_data(user_name=message.text)
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="1", callback_data="rating_1")],
-        [InlineKeyboardButton(text="2", callback_data="rating_2")],
-        [InlineKeyboardButton(text="3", callback_data="rating_3")],
-        [InlineKeyboardButton(text="4", callback_data="rating_4")],
-        [InlineKeyboardButton(text="5", callback_data="rating_5")],
+        [
+            InlineKeyboardButton(text="★ 1", callback_data="rating_1"),
+            InlineKeyboardButton(text="★ 2", callback_data="rating_2"),
+            InlineKeyboardButton(text="★ 3", callback_data="rating_3"),
+            InlineKeyboardButton(text="★ 4", callback_data="rating_4"),
+            InlineKeyboardButton(text="★ 5", callback_data="rating_5"),
+        ]
     ])
     
     await state.set_state(ReviewForm.rating)
-    await message.answer("Оцените кофейню от 1 до 5:", reply_markup=keyboard)
+    await message.answer("Оцените кофейню (выберите звёзды):", reply_markup=keyboard)
 
 
 async def process_anonymous(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(user_name="Аноним")
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="1", callback_data="rating_1")],
-        [InlineKeyboardButton(text="2", callback_data="rating_2")],
-        [InlineKeyboardButton(text="3", callback_data="rating_3")],
-        [InlineKeyboardButton(text="4", callback_data="rating_4")],
-        [InlineKeyboardButton(text="5", callback_data="rating_5")],
+        [
+            InlineKeyboardButton(text="★ 1", callback_data="rating_1"),
+            InlineKeyboardButton(text="★ 2", callback_data="rating_2"),
+            InlineKeyboardButton(text="★ 3", callback_data="rating_3"),
+            InlineKeyboardButton(text="★ 4", callback_data="rating_4"),
+            InlineKeyboardButton(text="★ 5", callback_data="rating_5"),
+        ]
     ])
     
     await state.set_state(ReviewForm.rating)
-    await callback.message.answer("Оцените кофейню от 1 до 5:", reply_markup=keyboard)
+    await callback.message.answer("Оцените кофейню (выберите звёзды):", reply_markup=keyboard)
     await callback.answer()
 
 
 async def process_rating(callback: types.CallbackQuery, state: FSMContext):
     rating = int(callback.data.split("_")[1])
-    await state.update_data(rating=rating)
+    await state.update_data(temp_rating=rating)
+
+    stars = [
+        InlineKeyboardButton(text="🌟 1", callback_data="rating_1") if rating >= 1 else InlineKeyboardButton(text="★ 1", callback_data="rating_1"),
+        InlineKeyboardButton(text="🌟 2", callback_data="rating_2") if rating >= 2 else InlineKeyboardButton(text="★ 2", callback_data="rating_2"),
+        InlineKeyboardButton(text="🌟 3", callback_data="rating_3") if rating >= 3 else InlineKeyboardButton(text="★ 3", callback_data="rating_3"),
+        InlineKeyboardButton(text="🌟 4", callback_data="rating_4") if rating >= 4 else InlineKeyboardButton(text="★ 4", callback_data="rating_4"),
+        InlineKeyboardButton(text="🌟 5", callback_data="rating_5") if rating >= 5 else InlineKeyboardButton(text="★ 5", callback_data="rating_5"),
+    ]
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        stars,
+        [InlineKeyboardButton(text="Готово", callback_data="confirm_rating")]
+    ])
+    await callback.message.edit_text(f"Ваша оценка: {rating} из 5", reply_markup=keyboard)
+    await callback.answer()
+
+
+async def confirm_rating(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    rating = data.get("temp_rating")
     
+    await state.update_data(rating=rating)
     await state.set_state(ReviewForm.review)
-    await callback.message.answer("Напишите ваш отзыв или отправьте голосовое сообщение:")
+    await callback.message.edit_text(f"Оценка принята! Вы поставили {rating} из 5\n\nНапишите отзыв или отправьте голосовое сообщение:")
     await callback.answer()
 
 
@@ -122,18 +143,17 @@ async def save_data(data: dict, review: io.BytesIO | str):
         review_text = review
     
     review_tonality = await get_tonality(review_text)
-
+    print(review_text, review_tonality)
     # Сохранение данных в базу данных
     
 
 
 def register_handlers(dp):
     dp.message.register(cmd_start, CommandStart())
-
     dp.callback_query.register(process_add_review, F.data == "add_review")
     dp.message.register(process_user_name, ReviewForm.user_name)
     dp.callback_query.register(process_anonymous, F.data == "anonymous")
-    dp.callback_query.register(process_rating, ReviewForm.rating)
+    dp.callback_query.register(process_rating, F.data.startswith("rating_"))
+    dp.callback_query.register(confirm_rating, F.data == "confirm_rating")
     dp.message.register(process_review, ReviewForm.review)
-
     dp.message.register(default_cmd)
