@@ -32,42 +32,39 @@ async def manager_panel(message: types.Message):
     await message.answer("Панель менеджера открыта", reply_markup=keyboard)
 
 
-async def unread_reviews(message: types.Message):
+async def unread_reviews(message_or_callback: types.Message | types.CallbackQuery):
     """
-    Открывает список непрочитанных отзывов
+    Отображает список непрочитанных отзывов.
+    Если сообщение - открывает первую страницу, если callback - открывает нужную страницу
 
     Args:
-        message (types.Message): сообщение
+        message_or_callback (types.Message | types.CallbackQuery): сообщение или callback-запрос (🩼)
     """
-    user_id = message.chat.id
+    user_id = message_or_callback.chat.id if isinstance(message_or_callback, types.Message) else message_or_callback.from_user.id
     if not is_manager(user_id):
-        await message.answer("Вы не менеджер")
+        await message_or_callback.answer("Вы не менеджер")
         logger.warning(f"Попытка открыть список непрочитанных отзывов не менеджером: {user_id}")
         return
 
-    logger.info(f"Менеджер {user_id} открыл список непрочитанных отзывов")
-    text, keyboard = get_reviews_page(0)
-    if keyboard is None:
-        await message.answer(text)
+    # определяем текущую страницу
+    if isinstance(message_or_callback, types.Message):
+        page = 0
     else:
-        await message.answer(text, reply_markup=keyboard)
+        page = int(message_or_callback.data.split("_")[3])
 
-
-async def unread_reviews_pagination(callback_query: types.CallbackQuery):
-    """
-    Листает страницы с непрочитанными отзывами
-
-    Args:
-        callback_query (types.CallbackQuery): сообщение
-    """
-    page = int(callback_query.data.split("_")[2])
-
+    logger.info(f"Менеджер {user_id} открыл список непрочитанных отзывов (страница {page})")
     text, keyboard = get_reviews_page(page)
     if keyboard is None:
-        await callback_query.message.edit_text(text)
+        if isinstance(message_or_callback, types.Message):
+            await message_or_callback.answer(text)
+        else:
+            await message_or_callback.message.edit_text(text)
     else:
-        await callback_query.message.edit_text(text, reply_markup=keyboard)
-    await callback_query.answer()
+        if isinstance(message_or_callback, types.Message):
+            await message_or_callback.answer(text, reply_markup=keyboard)
+        else:
+            await message_or_callback.message.edit_text(text, reply_markup=keyboard)
+            await message_or_callback.answer()  # 🩼
 
 
 async def review(callback_query: types.CallbackQuery):
@@ -101,22 +98,22 @@ def register_handlers(dp: Dispatcher):
     """
     dp.message.register(manager_panel, Command("manager"))
     dp.message.register(unread_reviews, F.text == "Непрочитанные отзывы 🗣️")
-    dp.callback_query.register(unread_reviews_pagination, lambda c: c.data.startswith("prev_page_") or c.data.startswith("next_page_"))
+    dp.callback_query.register(unread_reviews, F.data.startswith("unread_reviews_page_"))
     dp.callback_query.register(review, F.data.startswith("review_"))
 
 
 # ================================================ Utils here ================================================
-def get_reviews_page(page: int) -> tuple[str, InlineKeyboardMarkup]:
+def get_reviews_page(page: int, reviews_per_page: int = 5) -> tuple[str, InlineKeyboardMarkup]:
     """
     Рендерит клавиатуру нужной страницы с непрочитанными отзывами
 
     Args:
-        page (int): номер страницы
+        page (int): номер страницы списка отзывавов
+        reviews_per_page (int, optional): кол-во отзывов на одной странице. По умолчанию 5.
 
     Returns:
         tuple[str, InlineKeyboardMarkup]: (текст шапки клавиатуры, сама клавиатура)
-    """
-    reviews_per_page = 5
+    """    
     unread_reviews = dbtest.get_unreaded_reviews()
     total_reviews = len(unread_reviews)
     start = page * reviews_per_page
@@ -136,9 +133,9 @@ def get_reviews_page(page: int) -> tuple[str, InlineKeyboardMarkup]:
     # взад-вперёд
     navigation_buttons = []
     if page > 0:
-        navigation_buttons.append(InlineKeyboardButton(text="⬅️ Назад", callback_data=f"prev_page_{page - 1}"))
+        navigation_buttons.append(InlineKeyboardButton(text="⬅️ Назад", callback_data=f"unread_reviews_page_{page - 1}"))
     if end < total_reviews:
-        navigation_buttons.append(InlineKeyboardButton(text="Вперёд ➡️", callback_data=f"next_page_{page + 1}"))
+        navigation_buttons.append(InlineKeyboardButton(text="Вперёд ➡️", callback_data=f"unread_reviews_page_{page + 1}"))
     if navigation_buttons:
         buttons.append(navigation_buttons)
 
