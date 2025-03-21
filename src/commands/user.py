@@ -5,7 +5,7 @@ from aiogram import types, F, Bot
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
 from src.ai_utils import get_tonality, speech_to_text
 from db1test import reviews, get_user_reviews, delete_review_db, get_review # тестовый модуль имитирующий функции для бд (арс, работаем)
@@ -28,25 +28,27 @@ async def cmd_start(message: types.Message):
 
 
 async def choose_action(message: types.Message):
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Оставить отзыв", callback_data="add_review")],
-        [InlineKeyboardButton(text="Удалить отзыв", callback_data="delete_review")],
-        [InlineKeyboardButton(text="Мои отзывы", callback_data="view_reviews")]
-    ])
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="Оставить отзыв")],
+            [KeyboardButton(text="Удалить отзыв")],
+            [KeyboardButton(text="Мои отзывы")]
+        ],
+        resize_keyboard=True
+    )
     
     await message.answer("Выберите действие:", reply_markup=keyboard)
 
 
-async def process_add_review(callback: types.CallbackQuery, state: FSMContext):
+async def process_add_review(message: types.Message, state: FSMContext):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Остаться анонимным", callback_data="anonymous")]
     ])
     await state.set_state(ReviewForm.user_name)
-    await callback.message.answer("Введите ваше имя:", reply_markup=keyboard)
-    await callback.answer()
+    await message.answer("Введите ваше имя:", reply_markup=keyboard)
 
 
-async def process_user_or_anonymous(data: types.Message | types.CallbackQuery, state: FSMContext):
+async def process_user_name(data: types.Message | types.CallbackQuery, state: FSMContext):
     if isinstance(data, types.Message):
         await state.update_data(user_name=data.text)
     else:
@@ -127,40 +129,35 @@ async def process_review(message: types.Message, state: FSMContext, bot: Bot):
     await state.clear()
 
 
-async def view_reviews(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
+async def view_reviews(message: types.Message):
+    user_id = message.from_user.id
     user_reviews = get_user_reviews(user_id)
     
     if not user_reviews:
-        await callback.message.answer("У вас пока нет отзывов.")
-        await callback.answer()
+        await message.answer("У вас пока нет отзывов.")
         return
     
-    response = "Ваши отзывы:\n"
-    for review in user_reviews:
-        response += f"№{review['review_id']} | Оценка: {review['rating']} | {review['text']}\n\n"
+    response = "Ваши отзывы:\n\n"
+    for i in range(len(user_reviews)):
+        review = user_reviews[i]
+        response += f"№{i} | Оценка: {review['rating']} | {review['text']}\n\n"
     
-    await callback.message.answer(response, reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Удалить отзыв", callback_data="delete_review")],
-    ]))
-    await callback.answer()
+    await message.answer(response)
 
 
-async def delete_review(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
+async def delete_review(message: types.Message):
+    user_id = message.from_user.id
     user_reviews = get_user_reviews(user_id)
     
     if not user_reviews:
-        await callback.message.answer("У вас нет отзывов для удаления.")
-        await callback.answer()
+        await message.answer("У вас нет отзывов для удаления.")
         return
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=f"Удалить отзыв №{r['review_id']}", callback_data=f"del_{r['review_id']}")]
         for r in user_reviews
     ])
-    await callback.message.answer("Выберите отзыв для удаления:", reply_markup=keyboard)
-    await callback.answer()
+    await message.answer("Выберите отзыв для удаления:", reply_markup=keyboard)
 
 
 async def confirm_delete(callback: types.CallbackQuery):
@@ -203,16 +200,16 @@ async def save_data(data: dict, review: io.BytesIO | str):
 def register_handlers(dp):
     dp.message.register(cmd_start, CommandStart())
 
-    dp.callback_query.register(process_add_review, F.data == "add_review")
-    dp.message.register(process_user_or_anonymous, ReviewForm.user_name)
-    dp.callback_query.register(process_user_or_anonymous, F.data == "anonymous")
+    dp.message.register(process_add_review, F.text == "Оставить отзыв")
+    dp.message.register(process_user_name, ReviewForm.user_name)
+    dp.callback_query.register(process_user_name, F.data == "anonymous")
     dp.callback_query.register(process_rating, F.data.startswith("rating_"))
     dp.callback_query.register(confirm_rating, F.data == "confirm_rating")
     dp.message.register(process_review, ReviewForm.review)
 
-    dp.callback_query.register(view_reviews, F.data == "view_reviews")
+    dp.message.register(view_reviews,F.text == "Мои отзывы")
 
-    dp.callback_query.register(delete_review, F.data == "delete_review")
+    dp.message.register(delete_review, F.text == "Удалить отзыв")
     dp.callback_query.register(confirm_delete, F.data.startswith("del_"))
 
     dp.message.register(default_cmd)
