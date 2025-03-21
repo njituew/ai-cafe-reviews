@@ -137,7 +137,7 @@ async def process_review(message: types.Message, state: FSMContext, bot: Bot):
     await state.clear()
 
 
-async def view_reviews(callback: types.CallbackQuery, state: FSMContext):
+async def view_reviews(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_reviews = get_user_reviews(user_id)
     
@@ -156,7 +156,7 @@ async def view_reviews(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-async def delete_review(callback: types.CallbackQuery, state: FSMContext):
+async def delete_review(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_reviews = get_user_reviews(user_id)
     
@@ -173,7 +173,7 @@ async def delete_review(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-async def confirm_delete(callback: types.CallbackQuery, state: FSMContext):
+async def confirm_delete(callback: types.CallbackQuery):
     review_id = int(callback.data.split("_")[1])
     review = get_review(review_id)
     
