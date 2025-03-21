@@ -148,7 +148,7 @@ async def view_reviews(callback: types.CallbackQuery, state: FSMContext):
     
     response = "Ваши отзывы:\n"
     for review in user_reviews:
-        response += f"№{review['review_id']} | Оценка: {review['mark']} | {review['text']}\n\n"
+        response += f"№{review['review_id']} | Оценка: {review['rating']} | {review['text']}\n\n"
     
     await callback.message.answer(response, reply_markup=InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Удалить отзыв", callback_data="delete_review")],
