@@ -46,8 +46,11 @@ async def process_add_review(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-async def process_user_name(message: types.Message, state: FSMContext):
-    await state.update_data(user_name=message.text)
+async def process_user_or_anonymous(data: types.Message | types.CallbackQuery, state: FSMContext):
+    if isinstance(data, types.Message):
+        await state.update_data(user_name=data.text)
+    else:
+        await state.update_data(user_name="Аноним")
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
@@ -60,25 +63,12 @@ async def process_user_name(message: types.Message, state: FSMContext):
     ])
     
     await state.set_state(ReviewForm.rating)
-    await message.answer("Оцените кофейню (выберите звёзды):", reply_markup=keyboard)
 
-
-async def process_anonymous(callback: types.CallbackQuery, state: FSMContext):
-    await state.update_data(user_name="Аноним")
-    
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="★ 1", callback_data="rating_1"),
-            InlineKeyboardButton(text="★ 2", callback_data="rating_2"),
-            InlineKeyboardButton(text="★ 3", callback_data="rating_3"),
-            InlineKeyboardButton(text="★ 4", callback_data="rating_4"),
-            InlineKeyboardButton(text="★ 5", callback_data="rating_5"),
-        ]
-    ])
-    
-    await state.set_state(ReviewForm.rating)
-    await callback.message.answer("Оцените кофейню (выберите звёзды):", reply_markup=keyboard)
-    await callback.answer()
+    if isinstance(data, types.Message):
+        await data.answer("Оцените кофейню (выберите звёзды):", reply_markup=keyboard)
+    else:
+        await data.message.answer("Оцените кофейню (выберите звёзды):", reply_markup=keyboard)
+        await data.answer()
 
 
 async def process_rating(callback: types.CallbackQuery, state: FSMContext):
@@ -214,8 +204,8 @@ def register_handlers(dp):
     dp.message.register(cmd_start, CommandStart())
 
     dp.callback_query.register(process_add_review, F.data == "add_review")
-    dp.message.register(process_user_name, ReviewForm.user_name)
-    dp.callback_query.register(process_anonymous, F.data == "anonymous")
+    dp.message.register(process_user_or_anonymous, ReviewForm.user_name)
+    dp.callback_query.register(process_user_or_anonymous, F.data == "anonymous")
     dp.callback_query.register(process_rating, F.data.startswith("rating_"))
     dp.callback_query.register(confirm_rating, F.data == "confirm_rating")
     dp.message.register(process_review, ReviewForm.review)
