@@ -4,7 +4,6 @@ from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import Integer, func, ForeignKey
 
-from config import load_config
 from config.enums import *
 
 

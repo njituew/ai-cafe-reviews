@@ -1,5 +1,6 @@
 from datetime import datetime
 from functools import wraps
+from typing import Awaitable
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import select, update, delete
@@ -9,8 +10,8 @@ from .models import *
 from . import async_session_maker
 
 
-def connection(method: callable):
-    @wraps
+def connection(method: Awaitable):
+    @wraps(method)
     async def wrapper(*args, **kwargs):
         async with async_session_maker() as session:
             try:
@@ -55,7 +56,7 @@ async def delete_rewiew(rewiew_model: Rewiew, session: AsyncSession) -> None:
     
 @connection
 async def get_rewiews_by_time(start: datetime, end: datetime, session: AsyncSession, reverse=False) -> list[Rewiew]:
-    rewiews = session.scalars(
+    rewiews = await session.scalars(
         select(Rewiew).\
         where(Rewiew.created_at >= start).\
         where(Rewiew.created_at <= end).\
@@ -66,7 +67,7 @@ async def get_rewiews_by_time(start: datetime, end: datetime, session: AsyncSess
 
 @connection
 async def mark_as_readed(rewiew_id: int, mngr_id: int, session: AsyncSession) -> None:
-    session.execute(
+    await session.execute(
         update(Rewiew).\
         where(Rewiew.id == rewiew_id).\
         values(readed=True, readed_by=mngr_id)
@@ -76,7 +77,7 @@ async def mark_as_readed(rewiew_id: int, mngr_id: int, session: AsyncSession) ->
 
 @connection
 async def unreaded_rewiews(session: AsyncSession, reverse=False) -> list[Rewiew]:
-    rewiews = session.scalars(
+    rewiews = await session.scalars(
         select(Rewiew).\
         where(Rewiew.readed is True).\
         order_by((desc(Rewiew.created_at) if reverse else Rewiew.created_at))
@@ -86,7 +87,7 @@ async def unreaded_rewiews(session: AsyncSession, reverse=False) -> list[Rewiew]
 
 @connection
 async def get_manager_info(start: datetime, end: datetime, session: AsyncSession, reverse=False) -> list[tuple[Manager, int]]:
-    managers = session.scalars(
+    managers = await session.scalars(
         select(Manager).\
         where(Manager.created_at >= start).\
         where(Manager.created_at <= end).\
@@ -95,7 +96,7 @@ async def get_manager_info(start: datetime, end: datetime, session: AsyncSession
     
     activity = list()
     for mngr in managers:
-        mngr_activ = session.query(Rewiew).filter(
+        mngr_activ = await session.query(Rewiew).filter(
             Rewiew.created_at >= start,
             Rewiew.created_at <= end,
             Rewiew.readed is True,
