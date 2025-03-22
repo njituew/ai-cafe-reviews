@@ -1,5 +1,4 @@
-import os
-from dotenv import load_dotenv
+from config import load_config
 import json
 from src.logger import logger
 
@@ -7,8 +6,8 @@ from src.logger import logger
 Функция для получения токена бота из .env файла
 """
 def get_bot_token() -> str:
-    load_dotenv()
-    token = os.getenv("BOT_TOKEN")
+    conf = load_config()
+    token = conf.bot_token
 
     # Проверка токена
     if not token:

@@ -8,6 +8,7 @@ from src.commands import user, manager
 
 TOKEN = get_bot_token()
 
+
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot=bot, storage=MemoryStorage())
 

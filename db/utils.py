@@ -8,7 +8,7 @@ from .models import Rewiew
 from . import async_session_maker
 
 
-def connection(method):
+def connection(method: callable):
     @wrapper
     async def wrapper(*args, **kwargs):
         async with async_session_maker() as session:
@@ -23,9 +23,25 @@ def connection(method):
 
 
 @connection
-def get_review(r_id: int = 0) -> Rewiew:
+async def get_review(r_id: int, session) -> Rewiew:
     rewiew = await session.scalars(
         select(Rewiew).\
-        where(Rewiew.id = r_id)
+        where(Rewiew.id == r_id)
     ).first()
+    return rewiew
+
+
+@connection
+async def get_user_reviews(u_id: int, session) -> list[Rewiew]:
+    rewiews = await session.scalars(
+        select(Rewiew).\
+        where(Rewiew.user_id == u_id)
+    ).all()
+    return rewiews
+
+
+@connection
+async def add_rewiew(rewiew_model: Rewiew, session) -> None:
+    session.add(Rewiew)
+    await session.commit()
     
