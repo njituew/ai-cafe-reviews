@@ -12,8 +12,8 @@ TOKEN = get_bot_token()
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot=bot, storage=MemoryStorage())
 
-dp.include_router(user_router)
 dp.include_router(manager_router)
+dp.include_router(user_router)
 
 async def main():
     await dp.start_polling(bot)
