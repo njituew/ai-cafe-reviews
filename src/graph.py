@@ -68,3 +68,5 @@ async def changes_of_average_grade(list_of_grades: list[float]) -> BytesIO:
     plt.close()
 
     return buffer
+
+# UwU
