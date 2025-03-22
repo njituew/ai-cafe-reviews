@@ -3,7 +3,7 @@ from .models import *
 from .utils import *
 from config import load_config
 
-DATABASE_URL = 'sqlite+aiosqlite:///app.db'
+DATABASE_URL = load_config().database
 print(DATABASE_URL)
 engine = create_async_engine(url=DATABASE_URL)
 async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
