@@ -18,7 +18,12 @@ class BaseModel(AsyncAttrs, DeclarativeBase):
     @declared_attr.directive
     def __tablename__(cls) -> str:
         return cls.__name__.lower() + 's'
-    
+   
+   
+class Manager(BaseModel):
+    user_id: Mapped[int]
+    name: Mapped[str]
+ 
 
 class Rewiew(BaseModel):
     user_id: Mapped[int]
@@ -26,4 +31,11 @@ class Rewiew(BaseModel):
     text: Mapped[str]
     tonality: Mapped[ToneEnum]
     readed: Mapped[bool]
+    readed_by: Mapped[int | None] = mapped_column(ForeignKey('managers.user_id'))
     
+    # Many-to-one
+    manager: Mapped[Manager] = relationship(
+        'Manager',
+        back_populates='rewiews',
+        lazy='dynamic'
+    )

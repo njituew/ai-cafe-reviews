@@ -1,10 +1,11 @@
-from typing import Any
+from datetime import datetime
 from functools import wrapper
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import select, update, delete
+from sqlalchemy import desc
 
-from .models import Rewiew
+from .models import *
 from . import async_session_maker
 
 
@@ -23,7 +24,7 @@ def connection(method: callable):
 
 
 @connection
-async def get_review(r_id: int, session) -> Rewiew:
+async def get_review(r_id: int, session: AsyncSession) -> Rewiew:
     rewiew = await session.scalars(
         select(Rewiew).\
         where(Rewiew.id == r_id)
@@ -32,7 +33,7 @@ async def get_review(r_id: int, session) -> Rewiew:
 
 
 @connection
-async def get_user_reviews(u_id: int, session) -> list[Rewiew]:
+async def get_user_reviews(u_id: int, session: AsyncSession) -> list[Rewiew]:
     rewiews = await session.scalars(
         select(Rewiew).\
         where(Rewiew.user_id == u_id)
@@ -41,13 +42,56 @@ async def get_user_reviews(u_id: int, session) -> list[Rewiew]:
 
 
 @connection
-async def add_rewiew(rewiew_model: Rewiew, session) -> None:
+async def add_rewiew(rewiew_model: Rewiew, session: AsyncSession) -> None:
     session.add(rewiew_model)
     await session.commit()
     
     
 @connection
-async def delete_rewiew(rewiew_model: Rewiew, session) -> None:
+async def delete_rewiew(rewiew_model: Rewiew, session: AsyncSession) -> None:
     session.delete(rewiew_model)
-    await session.commit() 
+    await session.commit()
+    
+    
+@connection
+async def get_rewiews_by_time(start: datetime, end: datetime, session: AsyncSession, reverse=False):
+    rewiews = session.scalars(
+        select(Rewiew).\
+        where(Rewiew.created_at >= start).\
+        where(Rewiew.created_at <= end).\
+        order_by((desc(Rewiew.created_at) if reverse else Rewiew.created_at))
+    ).all()
+    return rewiews
+
+
+@connection
+async def mark_as_readed(rewiew_id: int, mngr_id: int, session: AsyncSession):
+    session.execute(
+        update(Rewiew).\
+        where(Rewiew.id == rewiew_id).\
+        values(readed=True, readed_by=mngr_id)
+    )
+    session.commit()
+    
+
+@connection
+async def unreaded_rewiews(session: AsyncSession, reverse=False):
+    rewiews = session.scalars(
+        select(Rewiew).\
+        where(Rewiew.readed).\
+        order_by((desc(Rewiew.created_at) if reverse else Rewiew.created_at))
+    )
+    return rewiews.all()
+
+
+@connection
+async def get_manager_info(start: datetime, end: datetime, session: AsyncSession, reverse=False):
+    managers = session.scalars(
+        select(Manager).\
+        where(Manager.created_at >= start).\
+        where(Manager.created_at <= end).\
+        order_by((desc(Manager.created_at) if reverse else Manager.created_at))
+    )
+    
+    return managers.all()
     
