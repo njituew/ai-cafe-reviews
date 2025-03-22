@@ -1,5 +1,6 @@
 import io
 import asyncio
+import json
 
 from aiogram import types, F, Bot
 from aiogram.filters import CommandStart
@@ -7,8 +8,15 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
+from datetime import datetime
+
 from src.ai_utils import get_tonality, speech_to_text
 from db1test import reviews, get_user_reviews, delete_review_db, get_review # тестовый модуль имитирующий функции для бд (арс, работаем)
+from src.logger import logger
+
+with open("managers.json", "r") as f:
+    managers_data = json.load(f)
+    managers = [mgr["chat_id"] for mgr in managers_data["managers"]]
 
 class ReviewForm(StatesGroup):
     user_name = State()
@@ -67,9 +75,9 @@ async def process_user_name(data: types.Message | types.CallbackQuery, state: FS
     await state.set_state(ReviewForm.rating)
 
     if isinstance(data, types.Message):
-        await data.answer("Оцените кофейню (выберите звёзды):", reply_markup=keyboard)
+        await data.answer("Оцените кофейню:", reply_markup=keyboard)
     else:
-        await data.message.answer("Оцените кофейню (выберите звёзды):", reply_markup=keyboard)
+        await data.message.answer("Оцените кофейню:", reply_markup=keyboard)
         await data.answer()
 
 
@@ -125,7 +133,7 @@ async def process_review(message: types.Message, state: FSMContext, bot: Bot):
         return
     
     await message.answer("Спасибо за отзыв!")
-    asyncio.create_task(save_data(data, review))
+    asyncio.create_task(save_data(data, review, bot))
     await state.clear()
 
 
@@ -140,7 +148,7 @@ async def view_reviews(message: types.Message):
     response = "Ваши отзывы:\n\n"
     for i in range(len(user_reviews)):
         review = user_reviews[i]
-        response += f"№{i} | Оценка: {review['rating']} | {review['text']}\n\n"
+        response += f"Отзыв №{i + 1} от {review['date']} | Оценка: {review['rating']} | {review['text']}\n\n"
     
     await message.answer(response)
 
@@ -154,8 +162,8 @@ async def delete_review(message: types.Message):
         return
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=f"Удалить отзыв №{r['review_id']}", callback_data=f"del_{r['review_id']}")]
-        for r in user_reviews
+        [InlineKeyboardButton(text=f"Удалить отзыв №{i + 1}", callback_data=f"del_{user_reviews[i]['review_id']}")]
+        for i in range(len(user_reviews))
     ])
     await message.answer("Выберите отзыв для удаления:", reply_markup=keyboard)
 
@@ -176,7 +184,7 @@ async def confirm_delete(callback: types.CallbackQuery):
     await callback.answer()
 
 
-async def save_data(data: dict, review: io.BytesIO | str):
+async def save_data(data: dict, review: io.BytesIO | str, bot: Bot):
     global reviews
     if isinstance(review, io.BytesIO):
         review_text = await speech_to_text(review)
@@ -191,10 +199,26 @@ async def save_data(data: dict, review: io.BytesIO | str):
         "rating": data["rating"],
         "text": review_text,
         "tonality": review_tonality,
-        "readed": False
+        "readed": False,
+        "date": datetime.now().strftime("%d.%m.%Y %H:%M")
     }
 
     reviews.append(new_review)
+
+    if review_tonality in ["Negative", "Very Negative"]:
+        message = (
+            f"Новый негативный отзыв!\n\n"
+            f"Пользователь: {data['user_name']}\n"
+            f"ID пользователя: {data['user_id']}\n"
+            f"Оценка: {new_review['rating']}\n"
+            f"Текст: {review_text}\n"
+            f"Дата: {new_review['date']}"
+        )
+        for manager_id in managers:
+            try:
+                await bot.send_message(chat_id=manager_id, text=message)
+            except Exception as e:
+                logger.warning(f"Ошибка при отправке менеджеру {manager_id}: {e}")
     
 
 def register_handlers(dp):

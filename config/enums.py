@@ -2,8 +2,8 @@ import enum
 
 
 class ToneEnum(str, enum.Enum):
-    VP = 'Very positive'
+    VP = 'Very Positive'
     P = 'Positive'
     N = 'Neutral'
     NEG = 'Negative'
-    VNEG = 'Very negative'
+    VNEG = 'Very Negative'

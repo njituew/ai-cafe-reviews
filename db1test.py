@@ -1,4 +1,5 @@
 import random
+from datetime import datetime, timedelta
 
 reviews = [
     {
@@ -6,8 +7,9 @@ reviews = [
         "user_id": i if i % 20 != 0 else 549991539, # вставь свой user_id
         "rating": random.randint(1, 5),
         "text": f"Тестовый отзыв {i}: {'вкусно' if random.random() > 0.5 else 'неплохо'}!",
-        "tonality": random.choice(["Very positive", "Positive", "Neutral", "Negative", "Very negative"]),
-        "readed": random.choice([True, False])
+        "tonality": random.choice(["Very Positive", "Positive", "Neutral", "Negative", "Very Negative"]),
+        "readed": random.choice([True, False]),
+        "date": (datetime.now() - timedelta(days=random.randint(0, 30))).strftime("%d.%m.%Y %H:%M")
     }
     for i in range(1, 101)
 ]
