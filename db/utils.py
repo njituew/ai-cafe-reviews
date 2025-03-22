@@ -72,14 +72,14 @@ async def mark_as_readed(review_id: int, mngr_id: int, session: AsyncSession) ->
         where(Review.id == review_id).\
         values(readed=True, readed_by=mngr_id)
     )
-    session.commit()
+    await session.commit()
     
 
 @connection
 async def unreaded_reviews(session: AsyncSession, reverse=False) -> list[Review]:
     reviews = await session.scalars(
         select(Review).\
-        where(Review.readed is True).\
+        where(Review.readed == False).\
         order_by((desc(Review.created_at) if reverse else Review.created_at))
     )
     return reviews.all()

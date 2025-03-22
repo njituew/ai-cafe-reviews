@@ -50,36 +50,15 @@ async def manager_panel(message: types.Message):
     await message.answer("Панель менеджера открыта", reply_markup=keyboard)
 
 
-# @manager_router.message(F.text == "Динамика удовлетворённости 📈")
-# async def satisfaction_dynamics(message: types.Message):
-#     """
-#     Отображает динамику удовлетворённости
-
-#     Args:
-#         message (types.Message): сообщение
-#     """
-#     user_id = message.chat.id
-#     if not is_manager(user_id):
-#         await message.answer("Вы не менеджер")
-#         logger.warning(f"Попытка открыть список непрочитанных отзывов не менеджером: {user_id}")
-#         return
-    
-#     buffer = await test_graph()
-#     await message.answer_photo(
-#         photo=BufferedInputFile(buffer.getvalue(), filename="graph.png"),
-#         caption="Динамика удовлетворённости"
-#     )
-
-
 @manager_router.message(F.text == "Дашборд 💻")
 async def satisfaction_dynamics(message: types.Message):
     """
-    Отображает динамику удовлетворённости
+    Отображает распределение оценок
 
     Args:
         message (types.Message): сообщение
     """
-    buffer = await distribution_of_ratings([3, 2, 3, 5, 10])    # test data
+    buffer = await distribution_of_ratings()
     await message.answer_photo(
         photo=BufferedInputFile(buffer.getvalue(), filename="graph.png"),
         caption="Дашборд"
@@ -128,7 +107,7 @@ async def review(callback_query: types.CallbackQuery):
     Args:
         callback_query (types.CallbackQuery): обратный вызов
     """
-    review_id = int(callback_query.data.split("_")[1])
+    call_type, review_id = callback_query.data.split("_")[0], int(callback_query.data.split("_")[1])
     review = await db.get_review(review_id)
     if not review:
         await callback_query.message.answer("Отзыв не найден")
@@ -136,9 +115,10 @@ async def review(callback_query: types.CallbackQuery):
     logger.info(f"Менеджер {callback_query.from_user.id} просматривает отзыв {review_id}")
     
     message_text = (
-        f"ID: {review}\n"
+        f"ID: {review.id}\n"
+        f"Пользователь: {review.user_id}\n"
         f"Оценка: {review.rating}\n"
-        f"Тональность: {review.tonality}\n"
+        f"Тональность: {review.tonality.value}\n"
         f"Текст: {review.text}\n"
         f"Прочитан: {'Да' if review.readed else 'Нет'}"
     )
@@ -148,13 +128,37 @@ async def review(callback_query: types.CallbackQuery):
         reply_markup = None
     else:
         reply_markup = InlineKeyboardMarkup(
-            inline_keyboard = [[InlineKeyboardButton(text="Прочитано ✅", callback_data=f"readed_{review_id}")]]
+            inline_keyboard = [
+                [InlineKeyboardButton(text="Прочитано ✅", callback_data=f"readed_{review_id}")]
+            ]
         )
     
-    await callback_query.message.answer(
-        message_text,
-        reply_markup = reply_markup
-    )
+    if call_type == "review":
+        await callback_query.message.answer(
+            message_text,
+            reply_markup = reply_markup
+        )
+    else:
+        await callback_query.message.edit_text(
+            message_text,
+            reply_markup = reply_markup
+        )
+
+
+@manager_router.callback_query(F.data.startswith("readed_"))
+async def mark_as_readed(callback_query: types.CallbackQuery):
+    """
+    Помечает отзыв как прочитанный
+    
+    Args:
+        callback_query (types.CallbackQuery): обратный вызов
+    """
+    review_id = int(callback_query.data.split("_")[1])
+    manager_id = callback_query.from_user.id
+    await db.mark_as_readed(review_id, manager_id)
+    logger.info(f"Менеджер {manager_id} пометил отзыв {review_id} как прочитанный")
+    await callback_query.answer("Отзыв помечен как прочитанный")
+    await review(callback_query)
 
 
 async def get_reviews_page(page: int, reviews_per_page: int = 5) -> tuple[str, InlineKeyboardMarkup]:
