@@ -42,6 +42,12 @@ async def get_user_reviews(u_id: int, session) -> list[Rewiew]:
 
 @connection
 async def add_rewiew(rewiew_model: Rewiew, session) -> None:
-    session.add(Rewiew)
+    session.add(rewiew_model)
     await session.commit()
+    
+    
+@connection
+async def delete_rewiew(rewiew_model: Rewiew, session) -> None:
+    session.delete(rewiew_model)
+    await session.commit() 
     
