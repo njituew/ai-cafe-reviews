@@ -41,8 +41,8 @@ async def manager_panel(message: types.Message):
     logger.info(f"Менеджер {user_id} открыл панель менеджера")
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="Динамика удовлетворённости 📈")],
-            [KeyboardButton(text="Непрочитанные отзывы 🗣️"), KeyboardButton(text="Дашборд 💻")],
+            [KeyboardButton(text="Непрочитанные отзывы 🗣️")],
+            [KeyboardButton(text="Дашборд 💻")],
             [KeyboardButton(text="Профиль менеджера 👩‍💼")]
         ],
         resize_keyboard=True
@@ -51,7 +51,23 @@ async def manager_panel(message: types.Message):
 
 
 @manager_router.message(F.text == "Дашборд 💻")
-async def satisfaction_dynamics(message: types.Message):
+async def dashboard_panel(message: types.Message):
+    """
+    Открывает панель дашборда
+
+    Args:
+        callback_query (types.CallbackQuery): обратный вызов
+    """
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Распределение оценок 🌟", callback_data="graph_distribution_of_ratings")],
+        [InlineKeyboardButton(text="Динамика удовлетворённости 📈", callback_data="graph_dynamics_of_satisfaction")],
+        [InlineKeyboardButton(text="Количество отзывов 📊", callback_data="graph_number_of_reviews")]
+    ])
+    await message.answer("Выберите график:", reply_markup=keyboard)
+
+
+@manager_router.callback_query(F.data == "graph_distribution_of_ratings")
+async def satisfaction_dynamics(callback_query: types.CallbackQuery):
     """
     Отображает распределение оценок
 
@@ -59,10 +75,11 @@ async def satisfaction_dynamics(message: types.Message):
         message (types.Message): сообщение
     """
     buffer = await distribution_of_ratings()
-    await message.answer_photo(
+    await callback_query.message.answer_photo(
         photo=BufferedInputFile(buffer.getvalue(), filename="graph.png"),
-        caption="Дашборд"
+        caption="Распределение оценок 🌟"
     )
+    await callback_query.answer()
 
 
 @manager_router.message(F.text == "Непрочитанные отзывы 🗣️")
@@ -186,7 +203,7 @@ async def get_reviews_page(page: int, reviews_per_page: int = 5) -> tuple[str, I
     
     # отзывы
     for review in reviews_to_display:
-        review_text = f"{review.rating}🌟 - {review.tonality} - {review.text[:10]}..."
+        review_text = f"{review.rating}🌟 - {review.tonality.value} - {review.text[:10]}..."
         buttons.append([InlineKeyboardButton(text=review_text, callback_data=f"review_{review.id}")])
 
     # взад-вперёд
