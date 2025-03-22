@@ -6,7 +6,7 @@ from aiogram.types import (
 
 from src.utils import is_manager
 from src.logger import logger
-# from src.graph import test_graph    # тестовый модуль для графика
+from src.graph import *
 import db.utils as db
 
 
@@ -58,6 +58,27 @@ async def manager_panel(message: types.Message):
 #         photo=BufferedInputFile(buffer.getvalue(), filename="graph.png"),
 #         caption="Динамика удовлетворённости"
 #     )
+
+
+@manager_router.message(F.text == "Дашборд 💻")
+async def satisfaction_dynamics(message: types.Message):
+    """
+    Отображает динамику удовлетворённости
+
+    Args:
+        message (types.Message): сообщение
+    """
+    user_id = message.chat.id
+    if not is_manager(user_id):
+        await message.answer("Вы не менеджер")
+        logger.warning(f"Попытка открыть список непрочитанных отзывов не менеджером: {user_id}")
+        return
+    
+    buffer = await distribution_of_ratings([3, 2, 3, 5, 10])    # test data
+    await message.answer_photo(
+        photo=BufferedInputFile(buffer.getvalue(), filename="graph.png"),
+        caption="Дашборд"
+    )
 
 
 @manager_router.message(F.text == "Непрочитанные отзывы 🗣️")
