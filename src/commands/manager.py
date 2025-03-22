@@ -1,4 +1,4 @@
-from aiogram import types, F, Dispatcher, Router
+from aiogram import types, F, Dispatcher, Router, BaseMiddleware
 from aiogram.filters import Command
 from aiogram.types import (
     ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, BufferedInputFile
@@ -10,7 +10,22 @@ from src.graph import *
 import db.utils as db
 
 
+class ManagerCheckMiddleware(BaseMiddleware):
+    async def __call__(self, handler, event, data):
+        user_id = event.chat.id if isinstance(event, types.Message) else event.from_user.id
+        if not is_manager(user_id):
+            if isinstance(event, types.Message):
+                await event.answer("Вы не менеджер")
+            elif isinstance(event, types.CallbackQuery):
+                await event.answer("Вы не менеджер", show_alert=True)
+            logger.warning(f"Попытка доступа не менеджером: {user_id}")
+            return
+        return await handler(event, data)
+
+
 manager_router = Router()
+manager_router.message.middleware(ManagerCheckMiddleware())
+manager_router.callback_query.middleware(ManagerCheckMiddleware())
 
 
 @manager_router.message(Command("manager"))
@@ -22,10 +37,10 @@ async def manager_panel(message: types.Message):
         message (types.Message): сообщение
     """
     user_id = message.chat.id
-    if not is_manager(user_id):
-        await message.answer("Вы не менеджер")
-        logger.warning(f"Попытка открыть панель менеджера не менеджером: {user_id}")
-        return
+    # if not is_manager(user_id):
+    #     await message.answer("Вы не менеджер")
+    #     logger.warning(f"Попытка открыть панель менеджера не менеджером: {user_id}")
+    #     return
 
     logger.info(f"Менеджер {user_id} открыл панель менеджера")
     keyboard = ReplyKeyboardMarkup(
