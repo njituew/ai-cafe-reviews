@@ -29,8 +29,8 @@ async def get_review(r_id: int, session: AsyncSession) -> Review:
     review = await session.scalars(
         select(Review).\
         where(Review.id == r_id)
-    ).first()
-    return review
+    )
+    return review.first()
 
 
 @connection
@@ -38,8 +38,8 @@ async def get_user_reviews(u_id: int, session: AsyncSession) -> list[Review]:
     reviews = await session.scalars(
         select(Review).\
         where(Review.user_id == u_id)
-    ).all()
-    return reviews
+    )
+    return reviews.all()
 
 
 @connection
@@ -61,8 +61,8 @@ async def get_reviews_by_time(start: datetime, end: datetime, session: AsyncSess
         where(Review.created_at >= start).\
         where(Review.created_at <= end).\
         order_by((desc(Review.created_at) if reverse else Review.created_at))
-    ).all()
-    return reviews
+    )
+    return reviews.all()
 
 
 @connection
@@ -92,7 +92,8 @@ async def get_manager_info(start: datetime, end: datetime, session: AsyncSession
         where(Manager.created_at >= start).\
         where(Manager.created_at <= end).\
         order_by((desc(Manager.created_at) if reverse else Manager.created_at))
-    ).all()
+    )
+    managers = managers.all()
     
     activity = list()
     for mngr in managers:
