@@ -1,5 +1,5 @@
 from datetime import datetime
-from functools import wrapper
+from functools import wraps
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import select, update, delete
@@ -10,7 +10,7 @@ from . import async_session_maker
 
 
 def connection(method: callable):
-    @wrapper
+    @wraps
     async def wrapper(*args, **kwargs):
         async with async_session_maker() as session:
             try:
