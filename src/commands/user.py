@@ -2,7 +2,7 @@ import io
 import asyncio
 import json
 
-from aiogram import types, F, Bot
+from aiogram import types, F, Bot, Router, Dispatcher
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -12,11 +12,12 @@ from datetime import datetime
 
 from src.ai_utils import get_tonality, speech_to_text
 from src.logger import logger
-from db1test import reviews, get_user_reviews, delete_review_db, get_review # тестовый модуль имитирующий функции для бд (арс, работаем)
+from db1test import reviews, get_user_reviews, delete_review_db, get_review
 
 with open("managers.json", "r") as f:
     managers_data = json.load(f)
     managers = [mgr["chat_id"] for mgr in managers_data["managers"]]
+
 
 class ReviewForm(StatesGroup):
     user_name = State()
@@ -24,10 +25,10 @@ class ReviewForm(StatesGroup):
     review = State()
 
 
-async def default_cmd(message: types.Message):
-    await message.answer(message.text)
+default_router = Router()
+review_router = Router()
 
-
+@default_router.message(CommandStart())
 async def cmd_start(message: types.Message):
     await message.answer(
         "Здравствуйте!\n\nЯ - MuffinMate. Выслушиваю ваши впечатления после посещения кофейни MuffinMate."
@@ -35,19 +36,12 @@ async def cmd_start(message: types.Message):
     await choose_action(message)
 
 
-async def choose_action(message: types.Message):
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="Оставить отзыв")],
-            [KeyboardButton(text="Удалить отзыв")],
-            [KeyboardButton(text="Мои отзывы")]
-        ],
-        resize_keyboard=True
-    )
-    
-    await message.answer("Выберите действие:", reply_markup=keyboard)
+@default_router.message()
+async def default_cmd(message: types.Message):
+    await message.answer(message.text)
 
 
+@review_router.message(F.text == "Оставить отзыв")
 async def process_add_review(message: types.Message, state: FSMContext):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Остаться анонимным", callback_data="anonymous")]
@@ -56,6 +50,8 @@ async def process_add_review(message: types.Message, state: FSMContext):
     await message.answer("Введите ваше имя:", reply_markup=keyboard)
 
 
+@review_router.message(ReviewForm.user_name)
+@review_router.callback_query(F.data == "anonymous")
 async def process_user_name(data: types.Message | types.CallbackQuery, state: FSMContext):
     if isinstance(data, types.Message):
         await state.update_data(user_name=data.text)
@@ -73,7 +69,6 @@ async def process_user_name(data: types.Message | types.CallbackQuery, state: FS
     ])
     
     await state.set_state(ReviewForm.rating)
-
     if isinstance(data, types.Message):
         await data.answer("Оцените кофейню:", reply_markup=keyboard)
     else:
@@ -81,6 +76,7 @@ async def process_user_name(data: types.Message | types.CallbackQuery, state: FS
         await data.answer()
 
 
+@review_router.callback_query(F.data.startswith("rating_"))
 async def process_rating(callback: types.CallbackQuery, state: FSMContext):
     rating = int(callback.data.split("_")[1])
     await state.update_data(temp_rating=rating)
@@ -101,6 +97,7 @@ async def process_rating(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
+@review_router.callback_query(F.data == "confirm_rating")
 async def confirm_rating(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
     rating = data.get("temp_rating")
@@ -111,6 +108,7 @@ async def confirm_rating(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
+@review_router.message(ReviewForm.review)
 async def process_review(message: types.Message, state: FSMContext, bot: Bot):
     review = None
     data = await state.get_data()
@@ -126,7 +124,6 @@ async def process_review(message: types.Message, state: FSMContext, bot: Bot):
         await bot.download_file(file_path, destination=buf)
         buf.name = "voice.oga"
         buf.seek(0)
-
         review = buf
     else:
         await message.answer("Пожалуйста, отправьте текст или голосовое сообщение.")
@@ -134,11 +131,11 @@ async def process_review(message: types.Message, state: FSMContext, bot: Bot):
     
     await message.answer("Спасибо за отзыв!")
     logger.info(f"Пользователь {data['user_id']} оставил новый отзыв")
-
     asyncio.create_task(save_data(data, review, bot))
     await state.clear()
 
 
+@review_router.message(F.text == "Мои отзывы")
 async def view_reviews(message: types.Message):
     user_id = message.from_user.id
     user_reviews = get_user_reviews(user_id)
@@ -155,6 +152,7 @@ async def view_reviews(message: types.Message):
     await message.answer(response)
 
 
+@review_router.message(F.text == "Удалить отзыв")
 async def delete_review(message: types.Message):
     user_id = message.from_user.id
     user_reviews = get_user_reviews(user_id)
@@ -170,6 +168,7 @@ async def delete_review(message: types.Message):
     await message.answer("Выберите отзыв для удаления:", reply_markup=keyboard)
 
 
+@review_router.callback_query(F.data.startswith("del_"))
 async def confirm_delete(callback: types.CallbackQuery):
     review_id = int(callback.data.split("_")[1])
     review = get_review(review_id)
@@ -185,6 +184,18 @@ async def confirm_delete(callback: types.CallbackQuery):
     else:
         await callback.message.answer("Ошибка при удалении отзыва.")
     await callback.answer()
+
+
+async def choose_action(message: types.Message):
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="Оставить отзыв")],
+            [KeyboardButton(text="Удалить отзыв")],
+            [KeyboardButton(text="Мои отзывы")]
+        ],
+        resize_keyboard=True
+    )
+    await message.answer("Выберите действие:", reply_markup=keyboard)
 
 
 async def save_data(data: dict, review: io.BytesIO | str, bot: Bot):
@@ -223,21 +234,12 @@ async def save_data(data: dict, review: io.BytesIO | str, bot: Bot):
                 logger.info(f"Отправлено оповещение о негативном отзыве менеджеру {manager_id}")
             except Exception as e:
                 logger.warning(f"Ошибка при отправке менеджеру {manager_id}: {e}")
-    
 
-def register_handlers(dp):
-    dp.message.register(cmd_start, CommandStart())
 
-    dp.message.register(process_add_review, F.text == "Оставить отзыв")
-    dp.message.register(process_user_name, ReviewForm.user_name)
-    dp.callback_query.register(process_user_name, F.data == "anonymous")
-    dp.callback_query.register(process_rating, F.data.startswith("rating_"))
-    dp.callback_query.register(confirm_rating, F.data == "confirm_rating")
-    dp.message.register(process_review, ReviewForm.review)
+def register_handlers(dp: Dispatcher):
+    dp.include_router(review_router)
+    dp.include_router(default_router)
 
-    dp.message.register(view_reviews,F.text == "Мои отзывы")
-
-    dp.message.register(delete_review, F.text == "Удалить отзыв")
-    dp.callback_query.register(confirm_delete, F.data.startswith("del_"))
-
-    dp.message.register(default_cmd)
+# вывод мои отзывы при удалении отзыва
+# роутер
+# добавить команду "о нас"

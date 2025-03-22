@@ -1,4 +1,4 @@
-from aiogram import types, F, Dispatcher
+from aiogram import types, F, Dispatcher, Router
 from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from src.utils import is_manager
@@ -6,7 +6,9 @@ from src.utils import is_manager
 from src.logger import logger
 import dbtest   # тестовый модуль имитирующий функции для бд (арс, работаем)
 
+manager_router = Router()
 
+@manager_router.message(Command("manager"))
 async def manager_panel(message: types.Message):
     """
     Открывает панель менеджера
@@ -32,6 +34,8 @@ async def manager_panel(message: types.Message):
     await message.answer("Панель менеджера открыта", reply_markup=keyboard)
 
 
+@manager_router.message(F.text == "Непрочитанные отзывы 🗣️")
+@manager_router.callback_query(F.data.startswith("unread_reviews_page_"))
 async def unread_reviews(message_or_callback: types.Message | types.CallbackQuery):
     """
     Отображает список непрочитанных отзывов.
@@ -67,6 +71,7 @@ async def unread_reviews(message_or_callback: types.Message | types.CallbackQuer
             await message_or_callback.answer()  # 🩼
 
 
+@manager_router.callback_query(F.data.startswith("review_"))
 async def review(callback_query: types.CallbackQuery):
     """
     Показывает один отзыв по его id
@@ -91,15 +96,12 @@ async def review(callback_query: types.CallbackQuery):
 
 def register_handlers(dp: Dispatcher):
     """
-    Регистрация всех ручек для менеджера
+    Регистрация роутера для менеджера
 
     Args:
         dp (Dispatcher): диспетчер бота
     """
-    dp.message.register(manager_panel, Command("manager"))
-    dp.message.register(unread_reviews, F.text == "Непрочитанные отзывы 🗣️")
-    dp.callback_query.register(unread_reviews, F.data.startswith("unread_reviews_page_"))
-    dp.callback_query.register(review, F.data.startswith("review_"))
+    dp.include_router(manager_router)
 
 
 # ================================================ Utils here ================================================
