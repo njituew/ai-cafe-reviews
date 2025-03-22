@@ -83,7 +83,7 @@ async def unread_reviews(message_or_callback: types.Message | types.CallbackQuer
         page = int(message_or_callback.data.split("_")[3])
 
     logger.info(f"Менеджер {user_id} открыл список непрочитанных отзывов (страница {page})")
-    text, keyboard = get_reviews_page(page)
+    text, keyboard = await get_reviews_page(page)
     if keyboard is None:
         if isinstance(message_or_callback, types.Message):
             await message_or_callback.answer(text)
@@ -107,7 +107,7 @@ async def review(callback_query: types.CallbackQuery):
     """
     review_id = int(callback_query.data.split("_")[1])
     logger.info(f"Менеджер {callback_query.from_user.id} просматривает отзыв {review_id}")
-    review = dbtest.get_review(review_id)
+    review = await dbtest.get_review(review_id)
     await callback_query.message.answer(
         f"ID: {review['review_id']}"
         f"\nОтзыв: {review['text']}"
@@ -131,7 +131,7 @@ def register_handlers(dp: Dispatcher):
 
 
 # ================================================ Utils here ================================================
-def get_reviews_page(page: int, reviews_per_page: int = 5) -> tuple[str, InlineKeyboardMarkup]:
+async def get_reviews_page(page: int, reviews_per_page: int = 5) -> tuple[str, InlineKeyboardMarkup]:
     """
     Рендерит клавиатуру нужной страницы с непрочитанными отзывами
 
@@ -142,7 +142,7 @@ def get_reviews_page(page: int, reviews_per_page: int = 5) -> tuple[str, InlineK
     Returns:
         tuple[str, InlineKeyboardMarkup]: (текст шапки клавиатуры, сама клавиатура)
     """    
-    unread_reviews = dbtest.get_unreaded_reviews()
+    unread_reviews = await dbtest.get_unreaded_reviews()
     total_reviews = len(unread_reviews)
     total_pages = (total_reviews + reviews_per_page - 1) // reviews_per_page
     start = page * reviews_per_page

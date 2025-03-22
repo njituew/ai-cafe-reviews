@@ -4,12 +4,12 @@ reviews = [
     ]
 
 
-def get_unreaded_reviews(start: int = 0, end: int = 0) -> list[dict]:
+async def get_unreaded_reviews(start: int = 0, end: int = 0) -> list[dict]:
     global reviews
     return reviews
 
 
-def get_review(id: int = 0) -> dict:
+async def get_review(id: int = 0) -> dict:
     global reviews
     for review in reviews:
         if review["review_id"] == id:

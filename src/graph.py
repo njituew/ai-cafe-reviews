@@ -1,6 +1,8 @@
+import matplotlib
+matplotlib.use('Agg')  # неинтерактивный бэкенд
+
 import matplotlib.pyplot as plt
 from io import BytesIO
-from aiogram.types import BufferedInputFile
 
 
 async def test_graph() -> BytesIO:
