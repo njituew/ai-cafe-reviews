@@ -37,10 +37,6 @@ async def manager_panel(message: types.Message):
         message (types.Message): сообщение
     """
     user_id = message.chat.id
-    # if not is_manager(user_id):
-    #     await message.answer("Вы не менеджер")
-    #     logger.warning(f"Попытка открыть панель менеджера не менеджером: {user_id}")
-    #     return
 
     logger.info(f"Менеджер {user_id} открыл панель менеджера")
     keyboard = ReplyKeyboardMarkup(
@@ -83,12 +79,6 @@ async def satisfaction_dynamics(message: types.Message):
     Args:
         message (types.Message): сообщение
     """
-    user_id = message.chat.id
-    if not is_manager(user_id):
-        await message.answer("Вы не менеджер")
-        logger.warning(f"Попытка открыть список непрочитанных отзывов не менеджером: {user_id}")
-        return
-    
     buffer = await distribution_of_ratings([3, 2, 3, 5, 10])    # test data
     await message.answer_photo(
         photo=BufferedInputFile(buffer.getvalue(), filename="graph.png"),
@@ -107,18 +97,15 @@ async def unread_reviews(message_or_callback: types.Message | types.CallbackQuer
         message_or_callback (types.Message | types.CallbackQuery): сообщение или callback-запрос (🩼)
     """
     user_id = message_or_callback.chat.id if isinstance(message_or_callback, types.Message) else message_or_callback.from_user.id
-    if not is_manager(user_id):
-        await message_or_callback.answer("Вы не менеджер")
-        logger.warning(f"Попытка открыть список непрочитанных отзывов не менеджером: {user_id}")
-        return
 
     # определяем текущую страницу
     if isinstance(message_or_callback, types.Message):
         page = 0
     else:
         page = int(message_or_callback.data.split("_")[3])
-
+    
     logger.info(f"Менеджер {user_id} открыл список непрочитанных отзывов (страница {page})")
+
     text, keyboard = await get_reviews_page(page)
     if keyboard is None:
         if isinstance(message_or_callback, types.Message):
