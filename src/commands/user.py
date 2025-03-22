@@ -8,11 +8,9 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
-from datetime import datetime
-
-# from src.ai_utils import get_tonality, speech_to_text
+from src.ai_utils import get_tonality, speech_to_text
 from src.logger import logger
-from db1test import reviews, get_user_reviews, delete_review_db, get_review
+from db.utils import *
 
 with open("managers.json", "r") as f:
     managers_data = json.load(f)
@@ -132,32 +130,31 @@ async def process_review(message: types.Message, state: FSMContext, bot: Bot):
 @user_router.message(F.text == "Мои отзывы")
 async def view_reviews(message: types.Message):
     user_id = message.from_user.id
-    user_reviews = get_user_reviews(user_id)
+    user_reviews = await get_user_reviews(user_id)
     
     if not user_reviews:
         await message.answer("У вас пока нет отзывов.")
         return
     
     response = "Ваши отзывы:\n\n"
-    for i in range(len(user_reviews)):
-        review = user_reviews[i]
-        response += f"Отзыв №{i + 1} от {review['date']} | Оценка: {review['rating']} | {review['text']}\n\n"
+    for i, review in enumerate(user_reviews, 1):
+        response += f"Отзыв №{i} от {review.created_at.strftime('%d.%m.%Y %H:%M')} | Оценка: {review.rating} | {review.text}\n\n"
     
     await message.answer(response)
 
 
 @user_router.message(F.text == "Удалить отзыв")
-async def delete_review(message: types.Message):
+async def process_delete_review(message: types.Message):
     user_id = message.from_user.id
-    user_reviews = get_user_reviews(user_id)
+    user_reviews = await get_user_reviews(user_id)
     
     if not user_reviews:
         await message.answer("У вас нет отзывов для удаления.")
         return
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=f"Удалить отзыв №{i + 1}", callback_data=f"del_{user_reviews[i]['review_id']}")]
-        for i in range(len(user_reviews))
+        [InlineKeyboardButton(text=f"Удалить отзыв №{i}", callback_data=f"del_{r.id}")]
+        for i, r in enumerate(user_reviews, 1)
     ])
     await message.answer("Выберите отзыв для удаления:", reply_markup=keyboard)
 
@@ -165,18 +162,21 @@ async def delete_review(message: types.Message):
 @user_router.callback_query(F.data.startswith("del_"))
 async def confirm_delete(callback: types.CallbackQuery):
     review_id = int(callback.data.split("_")[1])
-    review = get_review(review_id)
+    review = await get_review(review_id)
     
     if not review:
         await callback.message.answer("Этот отзыв не найден")
         await callback.answer()
         return
     
-    if delete_review_db(review_id):
+    try:
+        await delete_review(review)
         await callback.message.answer(f"Отзыв успешно удалён!")
         logger.info(f"Пользователь {callback.from_user.id} удалил отзыв {review_id}")
-    else:
+    except Exception as e:
         await callback.message.answer("Ошибка при удалении отзыва.")
+        logger.error(f"Ошибка при удалении отзыва {review_id}: {e}")
+    
     await callback.answer()
 
 
@@ -193,36 +193,32 @@ async def choose_action(message: types.Message):
 
 
 async def save_data(data: dict, review: io.BytesIO | str, bot: Bot):
-    global reviews
     if isinstance(review, io.BytesIO):
-        # review_text = await speech_to_text(review)
-        review_text = ''
+        review_text = await speech_to_text(review)
     else:
         review_text = review
     
-    # review_tonality = await get_tonality(review_text)
-    review_tonality = 0
+    review_tonality = await get_tonality(review_text)
 
-    new_review = {
-        "review_id": len(reviews) + 1,
-        "user_id": data["user_id"],
-        "rating": data["rating"],
-        "text": review_text,
-        "tonality": review_tonality,
-        "readed": False,
-        "date": datetime.now().strftime("%d.%m.%Y %H:%M")
-    }
+    new_review = Review(
+        user_id=data["user_id"],
+        rating=data["rating"],
+        text=review_text,
+        tonality=review_tonality,
+        readed=False,
+        readed_by=None
+    )
 
-    reviews.append(new_review)
+    await add_review(new_review)
 
-    if review_tonality in ["Negative", "Very Negative"]:
+    if review_tonality in [ToneEnum.NEG, ToneEnum.VNEG]:
         message = (
             f"Новый негативный отзыв!\n\n"
             f"Пользователь: {data['user_name']}\n"
-            f"ID пользователя: {data['user_id']}\n"
-            f"Оценка: {new_review['rating']}\n"
+            f"ID пользователя: {new_review.user_id}\n"
+            f"Оценка: {new_review.rating}\n"
             f"Текст: {review_text}\n"
-            f"Дата: {new_review['date']}"
+            f"Дата: {new_review.created_at.strftime('%d.%m.%Y %H:%M')}"
         )
         for manager_id in managers:
             try:

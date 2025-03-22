@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from .models import *
 from config import load_config
 
-DATABASE_URL = 'sqlite+aiosqlite:////home/atlan7/ai-cafe-reviews/app.db'
+DATABASE_URL = load_config().database
 print(DATABASE_URL)
 engine = create_async_engine(url=DATABASE_URL)
 async_session_maker = async_sessionmaker(engine, expire_on_commit=False)

@@ -50,7 +50,7 @@ async def add_review(review_model: Review, session: AsyncSession) -> None:
     
 @connection
 async def delete_review(review_model: Review, session: AsyncSession) -> None:
-    session.delete(review_model)
+    await session.delete(review_model)
     await session.commit()
     
     
