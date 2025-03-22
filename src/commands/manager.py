@@ -7,7 +7,7 @@ from aiogram.types import (
 from src.utils import is_manager
 from src.logger import logger
 from src.graph import test_graph    # тестовый модуль для графика
-import dbtest                       # тестовый модуль имитирующий функции для бд
+import db.utils as db
 
 
 manager_router = Router()
@@ -106,21 +106,34 @@ async def review(callback_query: types.CallbackQuery):
         callback_query (types.CallbackQuery): обратный вызов
     """
     review_id = int(callback_query.data.split("_")[1])
+    review = await db.get_review(review_id)
+    if not review:
+        await callback_query.message.answer("Отзыв не найден")
+        return
     logger.info(f"Менеджер {callback_query.from_user.id} просматривает отзыв {review_id}")
-    review = await dbtest.get_review(review_id)
-    await callback_query.message.answer(
-        f"ID: {review['review_id']}"
-        f"\nОтзыв: {review['text']}"
-        f"\nОценка: {review['mark']}"
-        f"\nТональность: {review['tonality']}"
-        f"\nПрочитан: {'Да' if review['readed'] else 'Нет'}",
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[[InlineKeyboardButton(text="Прочитано ✅", callback_data=f"readed_{review_id}")]]
+    
+    message_text = (
+        f"ID: {review}\n"
+        f"Оценка: {review.rating}\n"
+        f"Тональность: {review.tonality}\n"
+        f"Текст: {review.text}\n"
+        f"Прочитан: {'Да' if review.readed else 'Нет'}"
+    )
+    
+    if review.readed:
+        message_text += f"\nПрочитано менеджером с ID {review.readed_by}"
+        reply_markup = None
+    else:
+        reply_markup = InlineKeyboardMarkup(
+            inline_keyboard = [[InlineKeyboardButton(text="Прочитано ✅", callback_data=f"readed_{review_id}")]]
         )
+    
+    await callback_query.message.answer(
+        message_text,
+        reply_markup = reply_markup
     )
 
 
-# ================================================ Utils here ================================================
 async def get_reviews_page(page: int, reviews_per_page: int = 5) -> tuple[str, InlineKeyboardMarkup]:
     """
     Рендерит клавиатуру нужной страницы с непрочитанными отзывами
@@ -132,7 +145,7 @@ async def get_reviews_page(page: int, reviews_per_page: int = 5) -> tuple[str, I
     Returns:
         tuple[str, InlineKeyboardMarkup]: (текст шапки клавиатуры, сама клавиатура)
     """    
-    unread_reviews = await dbtest.get_unreaded_reviews()
+    unread_reviews = await db.unreaded_rewiews()
     total_reviews = len(unread_reviews)
     total_pages = (total_reviews + reviews_per_page - 1) // reviews_per_page
     start = page * reviews_per_page
@@ -146,8 +159,8 @@ async def get_reviews_page(page: int, reviews_per_page: int = 5) -> tuple[str, I
     
     # отзывы
     for review in reviews_to_display:
-        review_text = f"Оценка: {review['mark']} - {review['text'][:10]}..."
-        buttons.append([InlineKeyboardButton(text=review_text, callback_data=f"review_{review['review_id']}")])
+        review_text = f"{review.rating}🌟 - {review.tonality} - {review.text[:10]}..."
+        buttons.append([InlineKeyboardButton(text=review_text, callback_data=f"review_{review.id}")])
 
     # взад-вперёд
     navigation_buttons = []
