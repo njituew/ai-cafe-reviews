@@ -11,8 +11,8 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeybo
 from datetime import datetime
 
 from src.ai_utils import get_tonality, speech_to_text
-from db1test import reviews, get_user_reviews, delete_review_db, get_review # тестовый модуль имитирующий функции для бд (арс, работаем)
 from src.logger import logger
+from db1test import reviews, get_user_reviews, delete_review_db, get_review # тестовый модуль имитирующий функции для бд (арс, работаем)
 
 with open("managers.json", "r") as f:
     managers_data = json.load(f)
@@ -133,6 +133,8 @@ async def process_review(message: types.Message, state: FSMContext, bot: Bot):
         return
     
     await message.answer("Спасибо за отзыв!")
+    logger.info(f"Пользователь {data['user_id']} оставил новый отзыв")
+
     asyncio.create_task(save_data(data, review, bot))
     await state.clear()
 
@@ -179,6 +181,7 @@ async def confirm_delete(callback: types.CallbackQuery):
     
     if delete_review_db(review_id):
         await callback.message.answer(f"Отзыв успешно удалён!")
+        logger.info(f"Пользователь {callback.from_user.id} удалил отзыв {review_id}")
     else:
         await callback.message.answer("Ошибка при удалении отзыва.")
     await callback.answer()
@@ -217,6 +220,7 @@ async def save_data(data: dict, review: io.BytesIO | str, bot: Bot):
         for manager_id in managers:
             try:
                 await bot.send_message(chat_id=manager_id, text=message)
+                logger.info(f"Отправлено оповещение о негативном отзыве менеджеру {manager_id}")
             except Exception as e:
                 logger.warning(f"Ошибка при отправке менеджеру {manager_id}: {e}")
     
