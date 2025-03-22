@@ -20,7 +20,7 @@ async def distribution_of_ratings() -> BytesIO:
     list_of_reviews = await get_reviews_by_time(date(1, 1, 1), date.today())
     for review in list_of_reviews:
         list_of_ratings[review.rating - 1] += 1
-    x = [i + 1 for i in range(5)]
+    x = [i for i in range(1, 6)]
     y = list_of_ratings
 
     sns.set_style("darkgrid")
@@ -32,6 +32,7 @@ async def distribution_of_ratings() -> BytesIO:
     plt.title("График распределения оценок")
     plt.xlabel("Оценка")
     plt.ylabel("Количество отзывов")
+    plt.gca().yaxis.set_major_locator(plt.MaxNLocator(integer=True))  # Устанавливаем только целые числа на оси Y
 
     buffer = BytesIO()
     plt.savefig(buffer, format='png', dpi=100)
