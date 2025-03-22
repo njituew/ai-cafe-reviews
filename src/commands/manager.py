@@ -1,12 +1,17 @@
 from aiogram import types, F, Dispatcher, Router
 from aiogram.filters import Command
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
-from src.utils import is_manager
+from aiogram.types import (
+    ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, BufferedInputFile
+)
 
+from src.utils import is_manager
 from src.logger import logger
-import dbtest   # тестовый модуль имитирующий функции для бд (арс, работаем)
+from src.graph import test_graph    # тестовый модуль для графика
+import dbtest                       # тестовый модуль имитирующий функции для бд
+
 
 manager_router = Router()
+
 
 @manager_router.message(Command("manager"))
 async def manager_panel(message: types.Message):
@@ -25,13 +30,34 @@ async def manager_panel(message: types.Message):
     logger.info(f"Менеджер {user_id} открыл панель менеджера")
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="Непрочитанные отзывы 🗣️")],
-            [KeyboardButton(text="Дашборд 💻"), KeyboardButton(text="Динамика удовлетворённости 📈")],
+            [KeyboardButton(text="Динамика удовлетворённости 📈")],
+            [KeyboardButton(text="Непрочитанные отзывы 🗣️"), KeyboardButton(text="Дашборд 💻")],
             [KeyboardButton(text="Профиль менеджера 👩‍💼")]
         ],
         resize_keyboard=True
     )
     await message.answer("Панель менеджера открыта", reply_markup=keyboard)
+
+
+@manager_router.message(F.text == "Динамика удовлетворённости 📈")
+async def satisfaction_dynamics(message: types.Message):
+    """
+    Отображает динамику удовлетворённости
+
+    Args:
+        message (types.Message): сообщение
+    """
+    user_id = message.chat.id
+    if not is_manager(user_id):
+        await message.answer("Вы не менеджер")
+        logger.warning(f"Попытка открыть список непрочитанных отзывов не менеджером: {user_id}")
+        return
+    
+    buffer = await test_graph()
+    await message.answer_photo(
+        photo=BufferedInputFile(buffer.getvalue(), filename="graph.png"),
+        caption="Динамика удовлетворённости"
+    )
 
 
 @manager_router.message(F.text == "Непрочитанные отзывы 🗣️")
