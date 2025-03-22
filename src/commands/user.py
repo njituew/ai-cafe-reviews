@@ -25,10 +25,9 @@ class ReviewForm(StatesGroup):
     review = State()
 
 
-default_router = Router()
-review_router = Router()
+user_router = Router()
 
-@default_router.message(CommandStart())
+@user_router.message(CommandStart())
 async def cmd_start(message: types.Message):
     await message.answer(
         "Здравствуйте!\n\nЯ - MuffinMate. Выслушиваю ваши впечатления после посещения кофейни MuffinMate."
@@ -36,12 +35,7 @@ async def cmd_start(message: types.Message):
     await choose_action(message)
 
 
-@default_router.message()
-async def default_cmd(message: types.Message):
-    await message.answer(message.text)
-
-
-@review_router.message(F.text == "Оставить отзыв")
+@user_router.message(F.text == "Оставить отзыв")
 async def process_add_review(message: types.Message, state: FSMContext):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Остаться анонимным", callback_data="anonymous")]
@@ -50,8 +44,8 @@ async def process_add_review(message: types.Message, state: FSMContext):
     await message.answer("Введите ваше имя:", reply_markup=keyboard)
 
 
-@review_router.message(ReviewForm.user_name)
-@review_router.callback_query(F.data == "anonymous")
+@user_router.message(ReviewForm.user_name)
+@user_router.callback_query(F.data == "anonymous")
 async def process_user_name(data: types.Message | types.CallbackQuery, state: FSMContext):
     if isinstance(data, types.Message):
         await state.update_data(user_name=data.text)
@@ -76,7 +70,7 @@ async def process_user_name(data: types.Message | types.CallbackQuery, state: FS
         await data.answer()
 
 
-@review_router.callback_query(F.data.startswith("rating_"))
+@user_router.callback_query(F.data.startswith("rating_"))
 async def process_rating(callback: types.CallbackQuery, state: FSMContext):
     rating = int(callback.data.split("_")[1])
     await state.update_data(temp_rating=rating)
@@ -97,7 +91,7 @@ async def process_rating(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@review_router.callback_query(F.data == "confirm_rating")
+@user_router.callback_query(F.data == "confirm_rating")
 async def confirm_rating(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
     rating = data.get("temp_rating")
@@ -108,7 +102,7 @@ async def confirm_rating(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@review_router.message(ReviewForm.review)
+@user_router.message(ReviewForm.review)
 async def process_review(message: types.Message, state: FSMContext, bot: Bot):
     review = None
     data = await state.get_data()
@@ -135,7 +129,7 @@ async def process_review(message: types.Message, state: FSMContext, bot: Bot):
     await state.clear()
 
 
-@review_router.message(F.text == "Мои отзывы")
+@user_router.message(F.text == "Мои отзывы")
 async def view_reviews(message: types.Message):
     user_id = message.from_user.id
     user_reviews = get_user_reviews(user_id)
@@ -152,7 +146,7 @@ async def view_reviews(message: types.Message):
     await message.answer(response)
 
 
-@review_router.message(F.text == "Удалить отзыв")
+@user_router.message(F.text == "Удалить отзыв")
 async def delete_review(message: types.Message):
     user_id = message.from_user.id
     user_reviews = get_user_reviews(user_id)
@@ -168,7 +162,7 @@ async def delete_review(message: types.Message):
     await message.answer("Выберите отзыв для удаления:", reply_markup=keyboard)
 
 
-@review_router.callback_query(F.data.startswith("del_"))
+@user_router.callback_query(F.data.startswith("del_"))
 async def confirm_delete(callback: types.CallbackQuery):
     review_id = int(callback.data.split("_")[1])
     review = get_review(review_id)
@@ -238,9 +232,10 @@ async def save_data(data: dict, review: io.BytesIO | str, bot: Bot):
                 logger.warning(f"Ошибка при отправке менеджеру {manager_id}: {e}")
 
 
-def register_handlers(dp: Dispatcher):
-    dp.include_router(review_router)
-    dp.include_router(default_router)
+@user_router.message()
+async def default_cmd(message: types.Message):
+    await message.answer(message.text)
+
 
 # вывод мои отзывы при удалении отзыва
 # роутер

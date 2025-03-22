@@ -120,16 +120,6 @@ async def review(callback_query: types.CallbackQuery):
     )
 
 
-def register_handlers(dp: Dispatcher):
-    """
-    Регистрация роутера для менеджера
-
-    Args:
-        dp (Dispatcher): диспетчер бота
-    """
-    dp.include_router(manager_router)
-
-
 # ================================================ Utils here ================================================
 async def get_reviews_page(page: int, reviews_per_page: int = 5) -> tuple[str, InlineKeyboardMarkup]:
     """
