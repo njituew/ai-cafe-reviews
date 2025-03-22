@@ -145,7 +145,7 @@ async def get_reviews_page(page: int, reviews_per_page: int = 5) -> tuple[str, I
     Returns:
         tuple[str, InlineKeyboardMarkup]: (текст шапки клавиатуры, сама клавиатура)
     """    
-    unread_reviews = await db.unreaded_rewiews()
+    unread_reviews = await db.unreaded_reviews()
     total_reviews = len(unread_reviews)
     total_pages = (total_reviews + reviews_per_page - 1) // reviews_per_page
     start = page * reviews_per_page

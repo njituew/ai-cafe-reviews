@@ -24,7 +24,7 @@ class Manager(BaseModel):
     name: Mapped[str]
  
 
-class Rewiew(BaseModel):
+class Review(BaseModel):
     user_id: Mapped[int]
     rating: Mapped[int]
     text: Mapped[str]
@@ -34,7 +34,5 @@ class Rewiew(BaseModel):
     
     # Many-to-one
     manager: Mapped[Manager] = relationship(
-        'Manager',
-        back_populates='rewiews',
-        lazy='dynamic'
+        'Manager'
     )

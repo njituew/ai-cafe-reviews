@@ -25,64 +25,64 @@ def connection(method: Awaitable):
 
 
 @connection
-async def get_review(r_id: int, session: AsyncSession) -> Rewiew:
-    rewiew = await session.scalars(
-        select(Rewiew).\
-        where(Rewiew.id == r_id)
+async def get_review(r_id: int, session: AsyncSession) -> Review:
+    review = await session.scalars(
+        select(Review).\
+        where(Review.id == r_id)
     ).first()
-    return rewiew
+    return review
 
 
 @connection
-async def get_user_reviews(u_id: int, session: AsyncSession) -> list[Rewiew]:
-    rewiews = await session.scalars(
-        select(Rewiew).\
-        where(Rewiew.user_id == u_id)
+async def get_user_reviews(u_id: int, session: AsyncSession) -> list[Review]:
+    reviews = await session.scalars(
+        select(Review).\
+        where(Review.user_id == u_id)
     ).all()
-    return rewiews
+    return reviews
 
 
 @connection
-async def add_rewiew(rewiew_model: Rewiew, session: AsyncSession) -> None:
-    session.add(rewiew_model)
+async def add_review(review_model: Review, session: AsyncSession) -> None:
+    session.add(review_model)
     await session.commit()
     
     
 @connection
-async def delete_rewiew(rewiew_model: Rewiew, session: AsyncSession) -> None:
-    session.delete(rewiew_model)
+async def delete_review(review_model: Review, session: AsyncSession) -> None:
+    session.delete(review_model)
     await session.commit()
     
     
 @connection
-async def get_rewiews_by_time(start: datetime, end: datetime, session: AsyncSession, reverse=False) -> list[Rewiew]:
-    rewiews = await session.scalars(
-        select(Rewiew).\
-        where(Rewiew.created_at >= start).\
-        where(Rewiew.created_at <= end).\
-        order_by((desc(Rewiew.created_at) if reverse else Rewiew.created_at))
+async def get_reviews_by_time(start: datetime, end: datetime, session: AsyncSession, reverse=False) -> list[Review]:
+    reviews = await session.scalars(
+        select(Review).\
+        where(Review.created_at >= start).\
+        where(Review.created_at <= end).\
+        order_by((desc(Review.created_at) if reverse else Review.created_at))
     ).all()
-    return rewiews
+    return reviews
 
 
 @connection
-async def mark_as_readed(rewiew_id: int, mngr_id: int, session: AsyncSession) -> None:
+async def mark_as_readed(review_id: int, mngr_id: int, session: AsyncSession) -> None:
     await session.execute(
-        update(Rewiew).\
-        where(Rewiew.id == rewiew_id).\
+        update(Review).\
+        where(Review.id == review_id).\
         values(readed=True, readed_by=mngr_id)
     )
     session.commit()
     
 
 @connection
-async def unreaded_rewiews(session: AsyncSession, reverse=False) -> list[Rewiew]:
-    rewiews = await session.scalars(
-        select(Rewiew).\
-        where(Rewiew.readed is True).\
-        order_by((desc(Rewiew.created_at) if reverse else Rewiew.created_at))
+async def unreaded_reviews(session: AsyncSession, reverse=False) -> list[Review]:
+    reviews = await session.scalars(
+        select(Review).\
+        where(Review.readed is True).\
+        order_by((desc(Review.created_at) if reverse else Review.created_at))
     )
-    return rewiews.all()
+    return reviews.all()
 
 
 @connection
@@ -96,11 +96,11 @@ async def get_manager_info(start: datetime, end: datetime, session: AsyncSession
     
     activity = list()
     for mngr in managers:
-        mngr_activ = await session.query(Rewiew).filter(
-            Rewiew.created_at >= start,
-            Rewiew.created_at <= end,
-            Rewiew.readed is True,
-            Rewiew.readed_by == mngr.user_id
+        mngr_activ = await session.query(Review).filter(
+            Review.created_at >= start,
+            Review.created_at <= end,
+            Review.readed is True,
+            Review.readed_by == mngr.user_id
         ).count()
         activity.append(mngr_activ)
         
