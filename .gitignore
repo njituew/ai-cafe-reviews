@@ -4,6 +4,10 @@
 # telegram id
 managers.json
 
+# db
+*db
+*sqlite
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
