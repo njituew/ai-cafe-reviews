@@ -10,7 +10,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeybo
 
 from datetime import datetime
 
-from src.ai_utils import get_tonality, speech_to_text
+# from src.ai_utils import get_tonality, speech_to_text
 from src.logger import logger
 from db1test import reviews, get_user_reviews, delete_review_db, get_review
 
@@ -201,11 +201,13 @@ async def choose_action(message: types.Message):
 async def save_data(data: dict, review: io.BytesIO | str, bot: Bot):
     global reviews
     if isinstance(review, io.BytesIO):
-        review_text = await speech_to_text(review)
+        # review_text = await speech_to_text(review)
+        review_text = ''
     else:
         review_text = review
     
-    review_tonality = await get_tonality(review_text)
+    # review_tonality = await get_tonality(review_text)
+    review_tonality = 0
 
     new_review = {
         "review_id": len(reviews) + 1,
