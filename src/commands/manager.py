@@ -147,22 +147,18 @@ async def review(callback_query: types.CallbackQuery):
         f"Отвечен: {'Да' if review.answered else 'Нет'}"
     )
     
-    if review.readed and not review.answered:
+    buttons = [
+        [InlineKeyboardButton(text="Прочитано ✅", callback_data=f"readed_{review_id}")]
+        if not review.readed else None,
+        [InlineKeyboardButton(text="Ответить 👥", callback_data=f"reply_{review.id}")]
+        if not review.answered else None
+    ]
+    buttons = list(filter(None, buttons))
+
+    if review.readed:
         message_text += f"\nПрочитано менеджером с ID {review.readed_by}"
-        reply_markup = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text="Ответить", callback_data=f"reply_{review.id}")]
-            ]
-        )
-    elif review.answered:
-        reply_markup = None
-    else:
-        reply_markup = InlineKeyboardMarkup(
-            inline_keyboard = [
-                [InlineKeyboardButton(text="Прочитано ✅", callback_data=f"readed_{review_id}")],
-                [InlineKeyboardButton(text="Ответить", callback_data=f"reply_{review.id}")]
-            ]
-        )
+
+    reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
     
     if call_type == "review":
         await callback_query.message.answer(
@@ -249,10 +245,7 @@ async def process_reply_request(callback: types.CallbackQuery, state: FSMContext
         await callback.answer()
         return
     
-    await db.mark_as_readed(review_id, callback.from_user.id)
-    logger.info(f"Отзыв {review_id} отмечен как прочитанный менеджером {callback.from_user.id}")
-    
-    await state.update_data(review_id=review_id, user_id=review.user_id)
+    await state.update_data(review_id=review_id, user_id=review.user_id, manager_id=callback.from_user.id)
     await state.set_state(ManagerForm.waiting_for_manager_reply)
     await callback.message.answer("Введите ваш ответ пользователю:")
     await callback.answer()
@@ -263,10 +256,12 @@ async def process_manager_reply(message: types.Message, state: FSMContext, bot: 
     data = await state.get_data()
     user_id = data["user_id"]
     review_id = data["review_id"]
+    manager_id = data["manager_id"]
     
     try:
         await bot.send_message(chat_id=user_id, text=f"Ответ от менеджера кофейни MuffinMate:\n\n{message.text}")
         await message.answer("Ответ успешно отправлен пользователю!")
+        await db.mark_as_readed(review_id, manager_id)
         await db.mark_as_answered(review_id)
         logger.info(f"Менеджер {message.from_user.id} ответил на отзыв {review_id}")
     except Exception as e:
