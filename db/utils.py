@@ -116,4 +116,9 @@ async def get_manager_info(start: datetime, end: datetime, session: AsyncSession
         activity.append(mngr_activ)
         
     return zip(managers, activity)
-    
+
+
+@connection
+async def add_manager(manager_model: Manager, session: AsyncSession) -> None:
+    session.add(manager_model)
+    await session.commit()
