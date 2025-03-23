@@ -3,6 +3,7 @@
 import io
 # import asyncio
 import torch
+from pprint import pprint
 # import ffmpeg
 
 # import speech_recognition as sr
@@ -23,7 +24,7 @@ app_config = load_config()
 
 device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 tonality_pipe = pipeline("text-classification", model="tabularisai/multilingual-sentiment-analysis", device=device)
-llm = ChatGroq(model="deepseek-r1-distill-llama-70b-specdec", temperature=0)
+llm = ChatGroq(model="llama-3.3-70b-specdec", temperature=0)
 recognize_client = Groq()
 recognize_model = 'whisper-large-v3-turbo'
 db = SQLDatabase.from_uri(app_config.database.replace('+aiosqlite', ''))
@@ -33,7 +34,6 @@ db_agent_model = create_react_agent(
     llm,
     toolkit.get_tools() + [PythonREPLTool()]
 )
-
 
 
 async def get_tonality(text: str) -> str:
@@ -47,6 +47,7 @@ async def custom_query(query: str):
     "messages": [{"role": "user", "content": query}]
     })
 
+    pprint(result)
     return result["messages"][-1].content
 
 
