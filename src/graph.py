@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from db.utils import get_reviews_by_time
 from io import BytesIO
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 
 async def distribution_of_ratings() -> BytesIO:
@@ -17,7 +17,7 @@ async def distribution_of_ratings() -> BytesIO:
         list_of_ratings (list[int]): список, где индекс - это оценка (-1), значение - количество отзывов с такой оценкой.
     """
     list_of_ratings = [0] * 5
-    list_of_reviews = await get_reviews_by_time(date(1, 1, 1), date.today())
+    list_of_reviews = await get_reviews_by_time(date(1, 1, 1), datetime.now())
     for review in list_of_reviews:
         list_of_ratings[review.rating - 1] += 1
     x = [i for i in range(1, 6)]
