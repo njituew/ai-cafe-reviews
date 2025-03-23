@@ -10,7 +10,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeybo
 
 from src.ai_utils import get_tonality, speech_to_text
 from src.logger import logger
-from db.utils import *
+import db.utils as db
 
 with open("managers.json", "r") as f:
     managers_data = json.load(f)
@@ -128,9 +128,9 @@ async def process_review(message: types.Message, state: FSMContext, bot: Bot):
 
 
 @user_router.message(F.text == "Мои отзывы")
-async def view_reviews(message: types.Message):
+async def get_user_reviews(message: types.Message):
     user_id = message.from_user.id
-    user_reviews = await get_user_reviews(user_id)
+    user_reviews = await db.get_user_reviews(user_id)
     
     if not user_reviews:
         await message.answer("У вас пока нет отзывов.")
@@ -144,9 +144,9 @@ async def view_reviews(message: types.Message):
 
 
 @user_router.message(F.text == "Удалить отзыв")
-async def process_delete_review(message: types.Message):
+async def delete_review(message: types.Message):
     user_id = message.from_user.id
-    user_reviews = await get_user_reviews(user_id)
+    user_reviews = await db.get_user_reviews(user_id)
     
     if not user_reviews:
         await message.answer("У вас нет отзывов для удаления.")
@@ -162,7 +162,7 @@ async def process_delete_review(message: types.Message):
 @user_router.callback_query(F.data.startswith("del_"))
 async def confirm_delete(callback: types.CallbackQuery):
     review_id = int(callback.data.split("_")[1])
-    review = await get_review(review_id)
+    review = await db.get_review(review_id)
     
     if not review:
         await callback.message.answer("Этот отзыв не найден")
@@ -170,7 +170,7 @@ async def confirm_delete(callback: types.CallbackQuery):
         return
     
     try:
-        await delete_review(review)
+        await db.delete_review(review)
         await callback.message.answer(f"Отзыв успешно удалён!")
         logger.info(f"Пользователь {callback.from_user.id} удалил отзыв {review_id}")
     except Exception as e:
@@ -200,7 +200,7 @@ async def save_data(data: dict, review: io.BytesIO | str, bot: Bot):
     
     review_tonality = await get_tonality(review_text)
 
-    new_review = Review(
+    new_review = db.Review(
         user_id=data["user_id"],
         rating=data["rating"],
         text=review_text,
@@ -210,13 +210,13 @@ async def save_data(data: dict, review: io.BytesIO | str, bot: Bot):
         readed_by=None
     )
 
-    await add_review(new_review)
+    await db.add_review(new_review)
 
-    if review_tonality in [ToneEnum.NEG, ToneEnum.VNEG]:
+    if review_tonality in [db.ToneEnum.NEG, db.ToneEnum.VNEG]:
         await notify_managers_of_negative_review(new_review, data["user_name"], bot)
 
 
-async def notify_managers_of_negative_review(review: Review, user_name: str, bot: Bot):
+async def notify_managers_of_negative_review(review: db.Review, user_name: str, bot: Bot):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Ответить", callback_data=f"reply_{review.id}")]
     ])
@@ -239,8 +239,3 @@ async def notify_managers_of_negative_review(review: Review, user_name: str, bot
 @user_router.message()
 async def default_cmd(message: types.Message):
     await message.answer(message.text)
-
-
-# вывод мои отзывы при удалении отзыва
-# роутер
-# добавить команду "о нас"
