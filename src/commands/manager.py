@@ -6,10 +6,12 @@ from aiogram.types import (
     ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, BufferedInputFile
 )
 
-from src.utils import is_manager
+from db.utils import is_manager
 from src.logger import logger
 from src.graph import *
 import db.utils as db
+
+from datetime import datetime, timedelta
 
 
 class ManagerForm(StatesGroup):
@@ -19,7 +21,7 @@ class ManagerForm(StatesGroup):
 class ManagerCheckMiddleware(BaseMiddleware):
     async def __call__(self, handler, event, data):
         user_id = event.chat.id if isinstance(event, types.Message) else event.from_user.id
-        if not is_manager(user_id):
+        if not await is_manager(user_id):
             if isinstance(event, types.Message):
                 await event.answer("Вы не менеджер")
             elif isinstance(event, types.CallbackQuery):
@@ -49,7 +51,7 @@ async def manager_panel(message: types.Message):
         keyboard=[
             [KeyboardButton(text="Непрочитанные отзывы 🗣️")],
             [KeyboardButton(text="Дашборд 💻")],
-            [KeyboardButton(text="Профиль менеджера 👩‍💼")]
+            [KeyboardButton(text="Статистика менеджеров 👩‍💼")]
         ],
         resize_keyboard=True
     )
@@ -269,3 +271,22 @@ async def end_manager_reply(message: types.Message, state: FSMContext, bot: Bot)
         logger.warning(f"Ошибка при отправке ответа пользователю {user_id}: {e}")
     
     await state.clear()
+
+
+@manager_router.message(F.text == "Профиль менеджера 👩‍💼")
+async def manager_profile(message: types.Message):
+    """
+    Открывает профиль менеджера
+
+    Args:
+        message (types.Message): сообщение
+    """
+    start = datetime.now() - timedelta(days=30)
+    end = datetime.now()
+    stats = await db.get_manager_info(start, end)
+    
+    stats_text = "Статистика менеджеров за последние 30 дней:\n\n"
+    for manager, activity in stats:
+        stats_text += f"👤 {manager.name} (ID: {manager.user_id}) — {activity} обработанных отзывов\n"
+
+    await message.answer(stats_text)
