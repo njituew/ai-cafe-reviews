@@ -231,7 +231,7 @@ async def get_reviews_page(page: int, reviews_per_page: int = 5) -> tuple[str, I
 
 
 @manager_router.callback_query(F.data.startswith("reply_"))
-async def process_reply_request(callback: types.CallbackQuery, state: FSMContext):
+async def start_manager_reply(callback: types.CallbackQuery, state: FSMContext):
     review_id = int(callback.data.split("_")[1])
     review = await db.get_review(review_id)
     
@@ -252,7 +252,7 @@ async def process_reply_request(callback: types.CallbackQuery, state: FSMContext
 
 
 @manager_router.message(ManagerForm.waiting_for_manager_reply)
-async def process_manager_reply(message: types.Message, state: FSMContext, bot: Bot):
+async def end_manager_reply(message: types.Message, state: FSMContext, bot: Bot):
     data = await state.get_data()
     user_id = data["user_id"]
     review_id = data["review_id"]
