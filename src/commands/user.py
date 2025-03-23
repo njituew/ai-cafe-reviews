@@ -206,6 +206,7 @@ async def save_data(data: dict, review: io.BytesIO | str, bot: Bot):
         text=review_text,
         tonality=review_tonality,
         readed=False,
+        answered=False,
         readed_by=None
     )
 

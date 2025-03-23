@@ -73,6 +73,16 @@ async def mark_as_readed(review_id: int, mngr_id: int, session: AsyncSession) ->
         values(readed=True, readed_by=mngr_id)
     )
     await session.commit()
+
+
+@connection
+async def mark_as_answered(review_id: int, session: AsyncSession) -> None:
+    await session.execute(
+        update(Review).\
+        where(Review.id == review_id).\
+        values(answered=True)
+    )
+    await session.commit()
     
 
 @connection

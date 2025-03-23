@@ -30,6 +30,7 @@ class Review(BaseModel):
     text: Mapped[str]
     tonality: Mapped[ToneEnum]
     readed: Mapped[bool]
+    answered: Mapped[bool]
     readed_by: Mapped[int | None] = mapped_column(ForeignKey('managers.user_id'))
     
     # Many-to-one

@@ -141,18 +141,26 @@ async def review(callback_query: types.CallbackQuery):
         f"ID: {review.id}\n"
         f"Пользователь: {review.user_id}\n"
         f"Оценка: {review.rating}\n"
-        f"Тональность: {review.tonality.value}\n"
+        f"Тональность: {review.tonality.value}\n" # ??? мб убрать
         f"Текст: {review.text}\n"
-        f"Прочитан: {'Да' if review.readed else 'Нет'}"
+        f"Прочитан: {'Да' if review.readed else 'Нет'}\n"
+        f"Отвечен: {'Да' if review.answered else 'Нет'}"
     )
     
-    if review.readed:
+    if review.readed and not review.answered:
         message_text += f"\nПрочитано менеджером с ID {review.readed_by}"
+        reply_markup = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="Ответить", callback_data=f"reply_{review.id}")]
+            ]
+        )
+    elif review.answered:
         reply_markup = None
     else:
         reply_markup = InlineKeyboardMarkup(
             inline_keyboard = [
-                [InlineKeyboardButton(text="Прочитано ✅", callback_data=f"readed_{review_id}")]
+                [InlineKeyboardButton(text="Прочитано ✅", callback_data=f"readed_{review_id}")],
+                [InlineKeyboardButton(text="Ответить", callback_data=f"reply_{review.id}")]
             ]
         )
     
@@ -236,8 +244,8 @@ async def process_reply_request(callback: types.CallbackQuery, state: FSMContext
         await callback.answer()
         return
 
-    if review.readed:
-        await callback.message.answer("Этот отзыв уже обработан другим менеджером.")
+    if review.answered:
+        await callback.message.answer("Этот отзыв уже обработан.")
         await callback.answer()
         return
     
@@ -259,6 +267,7 @@ async def process_manager_reply(message: types.Message, state: FSMContext, bot: 
     try:
         await bot.send_message(chat_id=user_id, text=f"Ответ от менеджера кофейни MuffinMate:\n\n{message.text}")
         await message.answer("Ответ успешно отправлен пользователю!")
+        await db.mark_as_answered(review_id)
         logger.info(f"Менеджер {message.from_user.id} ответил на отзыв {review_id}")
     except Exception as e:
         await message.answer("Ошибка при отправке ответа пользователю.")
