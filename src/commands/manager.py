@@ -1,5 +1,7 @@
-from aiogram import types, F, Dispatcher, Router, BaseMiddleware
+from aiogram import types, F, Router, BaseMiddleware, Bot
 from aiogram.filters import Command
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.context import FSMContext
 from aiogram.types import (
     ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, BufferedInputFile
 )
@@ -8,6 +10,10 @@ from src.utils import is_manager
 from src.logger import logger
 from src.graph import *
 import db.utils as db
+
+
+class ManagerForm(StatesGroup):
+    waiting_for_manager_reply = State()
 
 
 class ManagerCheckMiddleware(BaseMiddleware):
@@ -218,3 +224,44 @@ async def get_reviews_page(page: int, reviews_per_page: int = 5) -> tuple[str, I
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     text = f"Непрочитанные отзывы (страница {page + 1}/{total_pages}):"
     return text, keyboard
+
+
+@manager_router.callback_query(F.data.startswith("reply_"))
+async def process_reply_request(callback: types.CallbackQuery, state: FSMContext):
+    review_id = int(callback.data.split("_")[1])
+    review = await db.get_review(review_id)
+    
+    if not review:
+        await callback.message.answer("Отзыв не найден.")
+        await callback.answer()
+        return
+
+    if review.readed:
+        await callback.message.answer("Этот отзыв уже обработан другим менеджером.")
+        await callback.answer()
+        return
+    
+    await db.mark_as_readed(review_id, callback.from_user.id)
+    logger.info(f"Отзыв {review_id} отмечен как прочитанный менеджером {callback.from_user.id}")
+    
+    await state.update_data(review_id=review_id, user_id=review.user_id)
+    await state.set_state(ManagerForm.waiting_for_manager_reply)
+    await callback.message.answer("Введите ваш ответ пользователю:")
+    await callback.answer()
+
+
+@manager_router.message(ManagerForm.waiting_for_manager_reply)
+async def process_manager_reply(message: types.Message, state: FSMContext, bot: Bot):
+    data = await state.get_data()
+    user_id = data["user_id"]
+    review_id = data["review_id"]
+    
+    try:
+        await bot.send_message(chat_id=user_id, text=f"Ответ от менеджера кофейни MuffinMate:\n\n{message.text}")
+        await message.answer("Ответ успешно отправлен пользователю!")
+        logger.info(f"Менеджер {message.from_user.id} ответил на отзыв {review_id}")
+    except Exception as e:
+        await message.answer("Ошибка при отправке ответа пользователю.")
+        logger.warning(f"Ошибка при отправке ответа пользователю {user_id}: {e}")
+    
+    await state.clear()

@@ -2,7 +2,7 @@ import io
 import asyncio
 import json
 
-from aiogram import types, F, Bot, Router, Dispatcher
+from aiogram import types, F, Bot, Router
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -212,20 +212,27 @@ async def save_data(data: dict, review: io.BytesIO | str, bot: Bot):
     await add_review(new_review)
 
     if review_tonality in [ToneEnum.NEG, ToneEnum.VNEG]:
-        message = (
-            f"Новый негативный отзыв!\n\n"
-            f"Пользователь: {data['user_name']}\n"
-            f"ID пользователя: {new_review.user_id}\n"
-            f"Оценка: {new_review.rating}\n"
-            f"Текст: {review_text}\n"
-            f"Дата: {new_review.created_at.strftime('%d.%m.%Y %H:%M')}"
-        )
-        for manager_id in managers:
-            try:
-                await bot.send_message(chat_id=manager_id, text=message)
-                logger.info(f"Отправлено оповещение о негативном отзыве менеджеру {manager_id}")
-            except Exception as e:
-                logger.warning(f"Ошибка при отправке менеджеру {manager_id}: {e}")
+        await notify_managers_of_negative_review(new_review, data["user_name"], bot)
+
+
+async def notify_managers_of_negative_review(review: Review, user_name: str, bot: Bot):
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Ответить", callback_data=f"reply_{review.id}")]
+    ])
+    message = (
+        f"Новый негативный отзыв!\n\n"
+        f"Пользователь: {user_name}\n"
+        f"ID пользователя: {review.user_id}\n"
+        f"Оценка: {review.rating}\n"
+        f"Текст: {review.text}\n"
+        f"Дата: {review.created_at.strftime('%d.%m.%Y %H:%M')}"
+    )
+    for manager_id in managers:
+        try:
+            await bot.send_message(chat_id=manager_id, text=message, reply_markup=keyboard)
+            logger.info(f"Отправлено оповещение о негативном отзыве менеджеру {manager_id}")
+        except Exception as e:
+            logger.warning(f"Ошибка при отправке менеджеру {manager_id}: {e}")
 
 
 @user_router.message()
