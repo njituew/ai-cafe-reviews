@@ -28,15 +28,15 @@ user_router = Router()
 @user_router.message(CommandStart())
 async def cmd_start(message: types.Message):
     await message.answer(
-        "Здравствуйте!\n\nЯ - MuffinMate. Выслушиваю ваши впечатления после посещения кофейни MuffinMate."
+        "Здравствуйте! 👋\n\nЯ - MuffinMate. Выслушиваю ваши впечатления после посещения кофейни MuffinMate."
     )
     await choose_action(message)
 
 
-@user_router.message(F.text == "Оставить отзыв")
+@user_router.message(F.text == "Оставить отзыв 📝")
 async def process_add_review(message: types.Message, state: FSMContext):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Остаться анонимным", callback_data="anonymous")]
+        [InlineKeyboardButton(text="Остаться анонимным 😶‍🌫️", callback_data="anonymous")]
     ])
     await state.set_state(ReviewForm.user_name)
     await message.answer("Введите ваше имя:", reply_markup=keyboard)
@@ -96,7 +96,7 @@ async def confirm_rating(callback: types.CallbackQuery, state: FSMContext):
     
     await state.update_data(rating=rating)
     await state.set_state(ReviewForm.review)
-    await callback.message.edit_text(f"Оценка принята! Вы поставили {rating} из 5\n\nНапишите отзыв или отправьте голосовое сообщение:")
+    await callback.message.edit_text(f"Оценка принята! Вы поставили {rating} 🌟\n\nНапишите отзыв или отправьте голосовое сообщение:")
     await callback.answer()
 
 
@@ -118,16 +118,16 @@ async def process_review(message: types.Message, state: FSMContext, bot: Bot):
         buf.seek(0)
         review = buf
     else:
-        await message.answer("Пожалуйста, отправьте текст или голосовое сообщение.")
+        await message.answer("Пожалуйста, отправьте текст или голосовое сообщение. ⚠️")
         return
     
-    await message.answer("Спасибо за отзыв!")
+    await message.answer("Спасибо за отзыв! 🙏")
     logger.info(f"Пользователь {data['user_id']} оставил новый отзыв")
     asyncio.create_task(save_data(data, review, bot))
     await state.clear()
 
 
-@user_router.message(F.text == "Мои отзывы")
+@user_router.message(F.text == "Мои отзывы 📜")
 async def get_user_reviews(message: types.Message):
     user_id = message.from_user.id
     user_reviews = await db.get_user_reviews(user_id)
@@ -136,14 +136,14 @@ async def get_user_reviews(message: types.Message):
         await message.answer("У вас пока нет отзывов.")
         return
     
-    response = "Ваши отзывы:\n\n"
+    response = "📜 Ваши отзывы:\n\n"
     for i, review in enumerate(user_reviews, 1):
         response += f"Отзыв №{i} от {review.created_at.strftime('%d.%m.%Y %H:%M')} | Оценка: {review.rating} | {review.text}\n\n"
     
     await message.answer(response)
 
 
-@user_router.message(F.text == "Удалить отзыв")
+@user_router.message(F.text == "Удалить отзыв ❌")
 async def delete_review(message: types.Message):
     user_id = message.from_user.id
     user_reviews = await db.get_user_reviews(user_id)
@@ -183,9 +183,9 @@ async def confirm_delete(callback: types.CallbackQuery):
 async def choose_action(message: types.Message):
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="Оставить отзыв")],
-            [KeyboardButton(text="Удалить отзыв")],
-            [KeyboardButton(text="Мои отзывы")]
+            [KeyboardButton(text="Оставить отзыв 📝")],
+            [KeyboardButton(text="Удалить отзыв ❌")],
+            [KeyboardButton(text="Мои отзывы 📜")]
         ],
         resize_keyboard=True
     )
@@ -218,10 +218,10 @@ async def save_data(data: dict, review: io.BytesIO | str, bot: Bot):
 
 async def notify_managers_of_negative_review(review: db.Review, user_name: str, bot: Bot):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Ответить", callback_data=f"reply_{review.id}")]
+        [InlineKeyboardButton(text="Ответить 👥", callback_data=f"reply_{review.id}")]
     ])
     message = (
-        f"Новый негативный отзыв!\n\n"
+        f"🔴 Новый негативный отзыв!\n\n"
         f"Пользователь: {user_name}\n"
         f"ID пользователя: {review.user_id}\n"
         f"Оценка: {review.rating}\n"
