@@ -273,7 +273,7 @@ async def end_manager_reply(message: types.Message, state: FSMContext, bot: Bot)
     await state.clear()
 
 
-@manager_router.message(F.text == "Профиль менеджера 👩‍💼")
+@manager_router.message(F.text == "Статистика менеджеров 👩‍💼")
 async def manager_profile(message: types.Message):
     """
     Открывает профиль менеджера
