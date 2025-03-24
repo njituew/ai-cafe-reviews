@@ -3,10 +3,10 @@ import asyncio
 import json
 
 from aiogram import types, F, Bot, Router
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, BotCommand
 
 from src.ai_utils import get_tonality, speech_to_text
 from src.logger import logger
@@ -28,12 +28,13 @@ user_router = Router()
 @user_router.message(CommandStart())
 async def cmd_start(message: types.Message):
     await message.answer(
-        "Здравствуйте! 👋\n\nЯ - MuffinMate. Выслушиваю ваши впечатления после посещения кофейни MuffinMate."
+        "Здравствуйте! 👋\n\nМеня зовут Muff, и я с удовольствием выслушаю ваши впечатления о посещении кофейни MuffinMate."
     )
     await choose_action(message)
 
 
 @user_router.message(F.text == "Оставить отзыв 📝")
+@user_router.message(Command("add_review"))
 async def process_add_review(message: types.Message, state: FSMContext):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Остаться анонимным 😶‍🌫️", callback_data="anonymous")]
@@ -128,12 +129,13 @@ async def process_review(message: types.Message, state: FSMContext, bot: Bot):
 
 
 @user_router.message(F.text == "Мои отзывы 📜")
+@user_router.message(Command("view_reviews"))
 async def get_user_reviews(message: types.Message):
     user_id = message.from_user.id
     user_reviews = await db.get_user_reviews(user_id)
     
     if not user_reviews:
-        await message.answer("У вас пока нет отзывов.")
+        await message.answer("У вас пока нет отзывов. Оставьте свой первый отзыв! 📝")
         return
     
     response = "📜 Ваши отзывы:\n\n"
@@ -144,6 +146,7 @@ async def get_user_reviews(message: types.Message):
 
 
 @user_router.message(F.text == "Удалить отзыв ❌")
+@user_router.message(Command("delete_review"))
 async def delete_review(message: types.Message):
     user_id = message.from_user.id
     user_reviews = await db.get_user_reviews(user_id)
@@ -165,21 +168,22 @@ async def confirm_delete(callback: types.CallbackQuery):
     review = await db.get_review(review_id)
     
     if not review:
-        await callback.message.answer("Этот отзыв не найден")
+        await callback.message.answer("Этот отзыв не найден.")
         await callback.answer()
         return
     
     try:
         await db.delete_review(review)
-        await callback.message.answer(f"Отзыв успешно удалён!")
+        await callback.message.answer(f"Отзыв успешно удалён! 🗑️")
         logger.info(f"Пользователь {callback.from_user.id} удалил отзыв {review_id}")
     except Exception as e:
-        await callback.message.answer("Ошибка при удалении отзыва.")
+        await callback.message.answer("Ошибка при удалении отзыва. Попробуйте позже. ⚠️")
         logger.error(f"Ошибка при удалении отзыва {review_id}: {e}")
     
     await callback.answer()
 
 
+@user_router.message(Command("menu"))
 async def choose_action(message: types.Message):
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
@@ -239,3 +243,14 @@ async def notify_managers_of_negative_review(review: db.Review, user_name: str, 
 @user_router.message()
 async def default_cmd(message: types.Message):
     await message.answer(message.text)
+
+
+async def set_user_commands(bot: Bot):
+    commands = [
+        BotCommand(command="start", description="Перезапустить бота"),
+        BotCommand(command="menu", description="Открыть главное меню"),
+        BotCommand(command="add_review", description="Оставить отзыв"),
+        BotCommand(command="delete_review", description="Удалить отзыв"),
+        BotCommand(command="view_reviews", description="Посмотреть свои отзывы")
+    ]
+    await bot.set_my_commands(commands)

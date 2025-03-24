@@ -1,11 +1,10 @@
 import asyncio
-import os
 
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from src.utils import get_bot_token, load_managers
-from src.commands.user import user_router
+from src.commands.user import user_router, set_user_commands
 from src.commands.manager import manager_router
 from db import init_models
 
@@ -18,6 +17,7 @@ dp.include_router(manager_router)
 dp.include_router(user_router)
 
 async def main():
+    await set_user_commands(bot)
     await init_models()
     await load_managers()
     await dp.start_polling(bot)

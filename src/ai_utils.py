@@ -1,32 +1,27 @@
-# import os
-# import ssl
 import io
-# import asyncio
 import torch
-from pprint import pprint
-# import ffmpeg
 
-# import speech_recognition as sr
-# from tempfile import NamedTemporaryFile
 from transformers import pipeline
-from langchain_groq import ChatGroq
 from groq import Groq
 
 from langchain.sql_database import SQLDatabase
 from langchain_experimental.tools.python.tool import PythonREPLTool
 from langgraph.prebuilt import create_react_agent
 from langchain.agents.agent_toolkits import SQLDatabaseToolkit
+from langchain_groq import ChatGroq
 
 from config import load_config
 
 app_config = load_config()
 
-
 device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 tonality_pipe = pipeline("text-classification", model="tabularisai/multilingual-sentiment-analysis", device=device)
+
 llm = ChatGroq(model="llama-3.3-70b-specdec", temperature=0)
+
 recognize_client = Groq()
 recognize_model = 'whisper-large-v3-turbo'
+
 db = SQLDatabase.from_uri(app_config.database.replace('+aiosqlite', ''))
 toolkit = SQLDatabaseToolkit(db=db, llm=llm)
 
@@ -44,10 +39,12 @@ async def get_tonality(text: str) -> str:
 
 async def custom_query(query: str):
     result = db_agent_model.invoke({
-    "messages": [{"role": "user", "content": query}]
+        "messages": [
+            {"role": "system", "content": "Ты помощник по базе данных."},
+            {"role": "user", "content": query}
+        ]
     })
 
-    pprint(result)
     return result["messages"][-1].content
 
 
