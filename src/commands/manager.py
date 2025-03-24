@@ -308,6 +308,11 @@ async def custom_query(callback_query: types.CallbackQuery, state: FSMContext):
 @manager_router.message(ManagerForm.waiting_for_custom_query)
 async def process_custom_query(message: types.Message, state: FSMContext):
     query = message.text
+    answer = await ai.custom_query(query)
 
-    await message.answer(await ai.custom_query(query))
+    if answer == "graphics/graph.png":
+        await message.answer_photo(photo=types.FSInputFile(answer))
+    else: 
+        await message.answer(answer)
+        
     await state.clear()
