@@ -10,6 +10,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeybo
 
 from src.ai_utils import get_tonality, speech_to_text
 from src.logger import logger
+from src.utils import set_commands
 import db.utils as db
 
 with open("managers.json", "r") as f:
@@ -30,6 +31,7 @@ async def cmd_start(message: types.Message):
     await message.answer(
         "Здравствуйте! 👋\n\nМеня зовут Muff, и я с удовольствием выслушаю ваши впечатления о посещении кофейни MuffinMate."
     )
+    await set_commands(message.bot, message.from_user.id)
     await choose_action(message)
 
 
@@ -244,14 +246,3 @@ async def notify_managers_of_negative_review(review: db.Review, bot: Bot):
 @user_router.message()
 async def default_cmd(message: types.Message):
     await message.answer(message.text)
-
-
-async def set_user_commands(bot: Bot):
-    commands = [
-        BotCommand(command="start", description="Перезапустить бота"),
-        BotCommand(command="menu", description="Открыть главное меню"),
-        BotCommand(command="add_review", description="Оставить отзыв"),
-        BotCommand(command="delete_review", description="Удалить отзыв"),
-        BotCommand(command="view_reviews", description="Посмотреть свои отзывы")
-    ]
-    await bot.set_my_commands(commands)
