@@ -7,14 +7,12 @@ import matplotlib.dates as mdates
 from db.utils import get_reviews_by_time
 from io import BytesIO
 from datetime import date, timedelta, datetime
+from pytz import timezone
 
 
 async def distribution_of_ratings() -> BytesIO:
     """
-    Показывает сколько отзывов имеет конкретную оценку
-
-    Args:
-        list_of_ratings (list[int]): список, где индекс - это оценка (-1), значение - количество отзывов с такой оценкой.
+    Показывает сколько отзывов имеет конкретную оценку.
     """
     list_of_ratings = [0] * 5
     list_of_reviews = await get_reviews_by_time(datetime(1, 1, 1, 0, 0, 0), datetime.now())
@@ -43,25 +41,28 @@ async def distribution_of_ratings() -> BytesIO:
 
 async def dynamics_of_satisfaction() -> BytesIO:
     """
-    Показывает как изменялась средняя оценка со временем.
-    Период расчётов - последние k дней, где k - длина списка.
-
-    Args:
-        list_of_grades (list[int]): список, где индекс - это день, значение - средняя оценка в этот день.
+    Показывает как изменялась средняя оценка за последний месяц.
     """
-    end_date = datetime.now()
-    start_date = date.today() - timedelta(days=30)
+    global MOSCOW_TZ
+    start_date = datetime.now(MOSCOW_TZ) - timedelta(days=30)
 
-    x = [start_date + timedelta(days = i) for i in range(30)]
-
-    list_of_grades = [0] * 30
-    for day_index in range(30):
-        list_of_grades[day_index] = await average_grade_for_date(x[day_index])
+    x = [start_date + timedelta(days = i + 1) for i in range(30)]
+    y = []
+    sum_of_all = 0
+    len_of_all = 0
+    for day in x:
+        cur_sum, cur_len = await calculate_day(day)
+        sum_of_all += cur_sum
+        len_of_all += cur_len
+        if len_of_all > 0:
+            y.append(sum_of_all / len_of_all)
+        else:
+            y.append(0)
 
     sns.set_style("darkgrid")
 
-    plt.figure(figsize=(6, 4))
-    sns.lineplot(x=x, y=list_of_grades, marker="o")
+    plt.figure(figsize=(8, 4))
+    sns.lineplot(x=x, y=y, marker="o")
 
     plt.title("График изменения средней оценки")
     plt.xlabel("Дата")
@@ -80,15 +81,14 @@ async def dynamics_of_satisfaction() -> BytesIO:
     return buffer
 
 
-async def average_grade_for_date(day: date) -> float:
+MOSCOW_TZ = timezone('Europe/Moscow')
+async def calculate_day(day: date):
+    start = datetime(day.year, day.month, day.day, 0, 0, 0)
+    end = datetime(day.year, day.month, day.day, 23, 59, 59)
+
+    # Запрос отзывов за указанный день в UTC+3
+    reviews = await get_reviews_by_time(start, end)
     sum_of_ratings = 0
-    today_reviews = get_reviews_by_time(datetime(day.year, day.month, day.day, 0, 0, 0), datetime(day.year, day.month, day.day, 23, 59, 59))
-    for review in today_reviews:
+    for review in reviews:
         sum_of_ratings += review.rating
-    
-    try:
-        result = sum_of_ratings / len(today_reviews)
-    except ZeroDivisionError:
-        retult = 0
-    
-    return result
+    return sum_of_ratings, len(reviews)
