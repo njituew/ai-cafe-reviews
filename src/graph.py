@@ -15,7 +15,7 @@ async def distribution_of_ratings() -> BytesIO:
     Показывает сколько отзывов имеет конкретную оценку.
     """
     list_of_ratings = [0] * 5
-    list_of_reviews = await get_reviews_by_time(datetime(1, 1, 1, 0, 0, 0), datetime.now())
+    list_of_reviews = await get_reviews_by_time(datetime(1, 1, 1, 0, 0, 0), datetime.now(MOSCOW_TZ))
     for review in list_of_reviews:
         list_of_ratings[review.rating - 1] += 1
     x = [i for i in range(1, 6)]
@@ -61,9 +61,10 @@ async def dynamics_of_satisfaction() -> BytesIO:
 
     sns.set_style("darkgrid")
 
-    plt.figure(figsize=(8, 4))
+    plt.figure(figsize=(10, 6))
     sns.lineplot(x=x, y=y, marker="o")
 
+    plt.ylim(bottom=0)
     plt.title("График изменения средней оценки")
     plt.xlabel("Дата")
     plt.ylabel("Средняя оценка")
@@ -92,3 +93,36 @@ async def calculate_day(day: date):
     for review in reviews:
         sum_of_ratings += review.rating
     return sum_of_ratings, len(reviews)
+
+
+async def number_of_reviews() -> BytesIO:
+    """
+    Показывает сколько отзывов было в каждый день за последний месяц.
+    """
+    global MOSCOW_TZ
+    start_date = datetime.now(MOSCOW_TZ) - timedelta(days=30)
+
+    x = [start_date + timedelta(days = i + 1) for i in range(30)]
+    y = []
+
+    for day in x:
+        cur_len = len(get_reviews_by_time(datetime(day.year, day.month, day.day, 0, 0, 0),  datetime(day.year, day.month, day.day, 23, 59, 59)))
+        y.append(cur_len)
+    
+    sns.set_style("darkgrid")
+
+    plt.figure(figsize=(10, 6))
+    sns.barplot(x=x, y=y, hue=x, legend=False, palette="crest")
+
+    plt.ylim(bottom=0)
+    plt.title("График количество отзывов")
+    plt.xlabel("Дата")
+    plt.ylabel("Количество отзывов")
+    plt.gca().yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+
+    buffer = BytesIO()
+    plt.savefig(buffer, format='png', dpi=100)
+    buffer.seek(0)  # сбрасываем указатель в 0 чтобы потом прочитать файл с начала
+    plt.close()
+
+    return buffer
