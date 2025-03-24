@@ -26,10 +26,12 @@ class Manager(BaseModel):
 
 class Review(BaseModel):
     user_id: Mapped[int]
+    user_name: Mapped[str]
     rating: Mapped[int]
     text: Mapped[str]
     tonality: Mapped[ToneEnum]
     readed: Mapped[bool]
+    answered: Mapped[bool]
     readed_by: Mapped[int | None] = mapped_column(ForeignKey('managers.user_id'))
     
     # Many-to-one

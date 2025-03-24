@@ -1,10 +1,10 @@
 from config import load_config
 import json
 from src.logger import logger
+from db.models import Manager
+from db.utils import add_manager
 
-"""
-Функция для получения токена бота из .env файла
-"""
+
 def get_bot_token() -> str:
     conf = load_config()
     token = conf.bot_token
@@ -16,23 +16,17 @@ def get_bot_token() -> str:
     logger.info("BOT_TOKEN loaded")
     return token
 
-"""
-Функция для проверки наличия прав менеджера у пользователя
-"""
-MANAGERS = None
-def is_manager(chat_id: int, file_path: str = "managers.json") -> bool:
-    global MANAGERS
-    if MANAGERS is None:
-        try:
-            with open(file_path, "r") as f:
-                data = json.load(f)["managers"]
-                MANAGERS = {manager["chat_id"] for manager in data}
-        except FileNotFoundError as e:
-            logger.error(f"Error loading managers: {e}")
-            MANAGERS = set()
-        if not MANAGERS:
-            logger.warning("There are no managers")
-        else:
-            logger.info("Managers loaded")
+
+async def load_managers():
+    managers = []
+    with open("managers.json", "r") as f:
+        data = json.load(f)["managers"]
+        managers = [
+            {"chat_id": manager["chat_id"], "name": manager["name"]} for manager in data
+        ]
     
-    return chat_id in MANAGERS
+    for manager in managers:
+        manager_obj = Manager(user_id=manager["chat_id"], name=manager["name"])
+        await add_manager(manager_obj)
+    
+    logger.info(f"Managers loaded. Total: {len(managers)}")

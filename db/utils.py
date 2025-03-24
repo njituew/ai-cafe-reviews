@@ -25,6 +25,21 @@ def connection(method: Awaitable):
 
 
 @connection
+async def add_manager(manager_model: Manager, session: AsyncSession) -> None:
+    if not await is_manager(manager_model.user_id):
+        session.add(manager_model)
+        await session.commit()
+
+
+@connection
+async def is_manager(user_id: int, session: AsyncSession) -> bool:
+    existing_manager = await session.scalar(
+        select(Manager).where(Manager.user_id == user_id)
+    )
+    return existing_manager is not None
+
+
+@connection
 async def get_review(r_id: int, session: AsyncSession) -> Review:
     review = await session.scalars(
         select(Review).\
@@ -73,6 +88,16 @@ async def mark_as_readed(review_id: int, mngr_id: int, session: AsyncSession) ->
         values(readed=True, readed_by=mngr_id)
     )
     await session.commit()
+
+
+@connection
+async def mark_as_answered(review_id: int, session: AsyncSession) -> None:
+    await session.execute(
+        update(Review).\
+        where(Review.id == review_id).\
+        values(answered=True)
+    )
+    await session.commit()
     
 
 @connection
@@ -95,14 +120,17 @@ async def get_manager_info(start: datetime, end: datetime, session: AsyncSession
     )
     managers = managers.all()
     
-    activity = list()
+    activity = []
     for mngr in managers:
-        mngr_activ = await session.query(Review).filter(
-            Review.created_at >= start,
-            Review.created_at <= end,
-            Review.readed is True,
-            Review.readed_by == mngr.user_id
-        ).count()
+        mngr_activ = await session.scalar(
+            select(func.count(Review.id)).\
+            where(
+                Review.created_at >= start,
+                Review.created_at <= end,
+                Review.readed == True,
+                Review.readed_by == mngr.user_id
+            )
+        )
         activity.append(mngr_activ)
         
     return zip(managers, activity)

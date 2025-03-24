@@ -1,19 +1,35 @@
-import os
-import whisper
-import ssl
 import io
-import asyncio
 import torch
 
-from tempfile import NamedTemporaryFile
 from transformers import pipeline
+from groq import Groq
 
-ssl._create_default_https_context = ssl._create_unverified_context
+from langchain.sql_database import SQLDatabase
+from langchain_experimental.tools.python.tool import PythonREPLTool
+from langgraph.prebuilt import create_react_agent
+from langchain.agents.agent_toolkits import SQLDatabaseToolkit
+from langchain_groq import ChatGroq
+
+from config import load_config
+
+app_config = load_config()
 
 device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 tonality_pipe = pipeline("text-classification", model="tabularisai/multilingual-sentiment-analysis", device=device)
 
-stt_model = whisper.load_model("medium")
+llm = ChatGroq(model="llama-3.3-70b-specdec", temperature=0)
+
+recognize_client = Groq()
+recognize_model = 'whisper-large-v3-turbo'
+
+db = SQLDatabase.from_uri(app_config.database.replace('+aiosqlite', ''))
+toolkit = SQLDatabaseToolkit(db=db, llm=llm)
+
+db_agent_model = create_react_agent(
+    llm,
+    toolkit.get_tools() + [PythonREPLTool()]
+)
+
 
 async def get_tonality(text: str) -> str:
     result = tonality_pipe(text)
@@ -21,13 +37,21 @@ async def get_tonality(text: str) -> str:
     return result[0]["label"]
 
 
+async def custom_query(query: str):
+    result = db_agent_model.invoke({
+        "messages": [
+            {"role": "system", "content": "Ты помощник по базе данных."},
+            {"role": "user", "content": query}
+        ]
+    })
+
+    return result["messages"][-1].content
+
+
 async def speech_to_text(audio_buffer: io.BytesIO) -> str:
-    with NamedTemporaryFile(delete=False, suffix=".oga") as temp_file:
-        temp_file.write(audio_buffer.read())
-        temp_file_path = temp_file.name
-
-    result = await asyncio.to_thread(stt_model.transcribe, audio=temp_file_path)
-
-    os.unlink(temp_file_path)
-
-    return result["text"]
+    translation = recognize_client.audio.transcriptions.create(
+        file=('audio.ogg', audio_buffer.read()),
+        model=recognize_model,
+        response_format="verbose_json"
+    )
+    return translation.text

@@ -1,19 +1,29 @@
-from aiogram import types, F, Dispatcher, Router, BaseMiddleware
+from aiogram import types, F, Router, BaseMiddleware, Bot
 from aiogram.filters import Command
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.context import FSMContext
 from aiogram.types import (
     ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, BufferedInputFile
 )
 
-from src.utils import is_manager
+from db.utils import is_manager
 from src.logger import logger
 from src.graph import *
 import db.utils as db
+import src.ai_utils as ai
+
+from datetime import datetime, timedelta
+
+
+class ManagerForm(StatesGroup):
+    waiting_for_manager_reply = State()
+    waiting_for_custom_query = State()
 
 
 class ManagerCheckMiddleware(BaseMiddleware):
     async def __call__(self, handler, event, data):
         user_id = event.chat.id if isinstance(event, types.Message) else event.from_user.id
-        if not is_manager(user_id):
+        if not await is_manager(user_id):
             if isinstance(event, types.Message):
                 await event.answer("Вы не менеджер")
             elif isinstance(event, types.CallbackQuery):
@@ -41,9 +51,9 @@ async def manager_panel(message: types.Message):
     logger.info(f"Менеджер {user_id} открыл панель менеджера")
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="Динамика удовлетворённости 📈")],
-            [KeyboardButton(text="Непрочитанные отзывы 🗣️"), KeyboardButton(text="Дашборд 💻")],
-            [KeyboardButton(text="Профиль менеджера 👩‍💼")]
+            [KeyboardButton(text="Непрочитанные отзывы 🗣️")],
+            [KeyboardButton(text="Дашборд 💻")],
+            [KeyboardButton(text="Статистика менеджеров 👩‍💼")]
         ],
         resize_keyboard=True
     )
@@ -51,7 +61,24 @@ async def manager_panel(message: types.Message):
 
 
 @manager_router.message(F.text == "Дашборд 💻")
-async def satisfaction_dynamics(message: types.Message):
+async def dashboard_panel(message: types.Message):
+    """
+    Открывает панель дашборда
+
+    Args:
+        callback_query (types.CallbackQuery): обратный вызов
+    """
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Распределение оценок 🌟", callback_data="graph_distribution_of_ratings")],
+        [InlineKeyboardButton(text="Динамика удовлетворённости 📈", callback_data="graph_dynamics_of_satisfaction")],
+        [InlineKeyboardButton(text="Количество отзывов 📊", callback_data="graph_number_of_reviews")],
+        [InlineKeyboardButton(text="Произвольный запрос", callback_data="custom_query")]
+    ])
+    await message.answer("Выберите график:", reply_markup=keyboard)
+
+
+@manager_router.callback_query(F.data == "graph_distribution_of_ratings")
+async def satisfaction_dynamics(callback_query: types.CallbackQuery):
     """
     Отображает распределение оценок
 
@@ -59,10 +86,11 @@ async def satisfaction_dynamics(message: types.Message):
         message (types.Message): сообщение
     """
     buffer = await distribution_of_ratings()
-    await message.answer_photo(
+    await callback_query.message.answer_photo(
         photo=BufferedInputFile(buffer.getvalue(), filename="graph.png"),
-        caption="Дашборд"
+        caption="Распределение оценок 🌟"
     )
+    await callback_query.answer()
 
 
 @manager_router.message(F.text == "Непрочитанные отзывы 🗣️")
@@ -118,20 +146,24 @@ async def review(callback_query: types.CallbackQuery):
         f"ID: {review.id}\n"
         f"Пользователь: {review.user_id}\n"
         f"Оценка: {review.rating}\n"
-        f"Тональность: {review.tonality.value}\n"
+        f"Тональность: {review.tonality.value}\n" # ??? мб убрать
         f"Текст: {review.text}\n"
-        f"Прочитан: {'Да' if review.readed else 'Нет'}"
+        f"Прочитан: {'Да' if review.readed else 'Нет'}\n"
+        f"Отвечен: {'Да' if review.answered else 'Нет'}"
     )
     
+    buttons = [
+        [InlineKeyboardButton(text="Прочитано ✅", callback_data=f"readed_{review_id}")]
+        if not review.readed else None,
+        [InlineKeyboardButton(text="Ответить 👥", callback_data=f"reply_{review.id}")]
+        if not review.answered else None
+    ]
+    buttons = list(filter(None, buttons))
+
     if review.readed:
         message_text += f"\nПрочитано менеджером с ID {review.readed_by}"
-        reply_markup = None
-    else:
-        reply_markup = InlineKeyboardMarkup(
-            inline_keyboard = [
-                [InlineKeyboardButton(text="Прочитано ✅", callback_data=f"readed_{review_id}")]
-            ]
-        )
+
+    reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
     
     if call_type == "review":
         await callback_query.message.answer(
@@ -186,7 +218,7 @@ async def get_reviews_page(page: int, reviews_per_page: int = 5) -> tuple[str, I
     
     # отзывы
     for review in reviews_to_display:
-        review_text = f"{review.rating}🌟 - {review.tonality} - {review.text[:10]}..."
+        review_text = f"{review.rating}🌟 - {review.tonality.value} - {review.text[:10]}..."
         buttons.append([InlineKeyboardButton(text=review_text, callback_data=f"review_{review.id}")])
 
     # взад-вперёд
@@ -201,3 +233,78 @@ async def get_reviews_page(page: int, reviews_per_page: int = 5) -> tuple[str, I
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     text = f"Непрочитанные отзывы (страница {page + 1}/{total_pages}):"
     return text, keyboard
+
+
+@manager_router.callback_query(F.data.startswith("reply_"))
+async def start_manager_reply(callback: types.CallbackQuery, state: FSMContext):
+    review_id = int(callback.data.split("_")[1])
+    review = await db.get_review(review_id)
+    
+    if not review:
+        await callback.message.answer("Отзыв не найден.")
+        await callback.answer()
+        return
+
+    if review.answered:
+        await callback.message.answer("Этот отзыв уже обработан.")
+        await callback.answer()
+        return
+    
+    await state.update_data(review_id=review_id, user_id=review.user_id, manager_id=callback.from_user.id)
+    await state.set_state(ManagerForm.waiting_for_manager_reply)
+    await callback.message.answer("Введите ваш ответ пользователю:")
+    await callback.answer()
+
+
+@manager_router.message(ManagerForm.waiting_for_manager_reply)
+async def end_manager_reply(message: types.Message, state: FSMContext, bot: Bot):
+    data = await state.get_data()
+    user_id = data["user_id"]
+    review_id = data["review_id"]
+    manager_id = data["manager_id"]
+    
+    try:
+        await bot.send_message(chat_id=user_id, text=f"Ответ от менеджера кофейни MuffinMate:\n\n{message.text}")
+        await message.answer("Ответ успешно отправлен пользователю!")
+        await db.mark_as_readed(review_id, manager_id)
+        await db.mark_as_answered(review_id)
+        logger.info(f"Менеджер {message.from_user.id} ответил на отзыв {review_id}")
+    except Exception as e:
+        await message.answer("Ошибка при отправке ответа пользователю.")
+        logger.warning(f"Ошибка при отправке ответа пользователю {user_id}: {e}")
+    
+    await state.clear()
+
+
+@manager_router.message(F.text == "Статистика менеджеров 👩‍💼")
+async def manager_profile(message: types.Message):
+    """
+    Открывает профиль менеджера
+
+    Args:
+        message (types.Message): сообщение
+    """
+    start = datetime.now() - timedelta(days=30)
+    end = datetime.now()
+    stats = await db.get_manager_info(start, end)
+    
+    stats_text = "Статистика менеджеров за последние 30 дней:\n\n"
+    for manager, activity in stats:
+        stats_text += f"👤 {manager.name} (ID: {manager.user_id}) — {activity} обработанных отзывов\n"
+
+    await message.answer(stats_text)
+
+
+@manager_router.callback_query(F.data == "custom_query")
+async def custom_query(callback_query: types.CallbackQuery, state: FSMContext):
+    await callback_query.message.answer("Введите запрос:")
+    await state.set_state(ManagerForm.waiting_for_custom_query)
+    await callback_query.answer()
+    
+
+@manager_router.message(ManagerForm.waiting_for_custom_query)
+async def process_custom_query(message: types.Message, state: FSMContext):
+    query = message.text
+
+    await message.answer(await ai.custom_query(query))
+    await state.clear()

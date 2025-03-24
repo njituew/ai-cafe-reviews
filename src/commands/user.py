@@ -2,15 +2,15 @@ import io
 import asyncio
 import json
 
-from aiogram import types, F, Bot, Router, Dispatcher
-from aiogram.filters import CommandStart
+from aiogram import types, F, Bot, Router
+from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, BotCommand
 
 from src.ai_utils import get_tonality, speech_to_text
 from src.logger import logger
-from db.utils import *
+import db.utils as db
 
 with open("managers.json", "r") as f:
     managers_data = json.load(f)
@@ -28,15 +28,16 @@ user_router = Router()
 @user_router.message(CommandStart())
 async def cmd_start(message: types.Message):
     await message.answer(
-        "Здравствуйте!\n\nЯ - MuffinMate. Выслушиваю ваши впечатления после посещения кофейни MuffinMate."
+        "Здравствуйте! 👋\n\nМеня зовут Muff, и я с удовольствием выслушаю ваши впечатления о посещении кофейни MuffinMate."
     )
     await choose_action(message)
 
 
-@user_router.message(F.text == "Оставить отзыв")
+@user_router.message(F.text == "Оставить отзыв 📝")
+@user_router.message(Command("add_review"))
 async def process_add_review(message: types.Message, state: FSMContext):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Остаться анонимным", callback_data="anonymous")]
+        [InlineKeyboardButton(text="Остаться анонимным 😶‍🌫️", callback_data="anonymous")]
     ])
     await state.set_state(ReviewForm.user_name)
     await message.answer("Введите ваше имя:", reply_markup=keyboard)
@@ -96,7 +97,7 @@ async def confirm_rating(callback: types.CallbackQuery, state: FSMContext):
     
     await state.update_data(rating=rating)
     await state.set_state(ReviewForm.review)
-    await callback.message.edit_text(f"Оценка принята! Вы поставили {rating} из 5\n\nНапишите отзыв или отправьте голосовое сообщение:")
+    await callback.message.edit_text(f"Оценка принята! Вы поставили {rating} 🌟\n\nНапишите отзыв или отправьте голосовое сообщение:")
     await callback.answer()
 
 
@@ -118,35 +119,37 @@ async def process_review(message: types.Message, state: FSMContext, bot: Bot):
         buf.seek(0)
         review = buf
     else:
-        await message.answer("Пожалуйста, отправьте текст или голосовое сообщение.")
+        await message.answer("Пожалуйста, отправьте текст или голосовое сообщение. ⚠️")
         return
     
-    await message.answer("Спасибо за отзыв!")
+    await message.answer("Спасибо за отзыв! 🙏")
     logger.info(f"Пользователь {data['user_id']} оставил новый отзыв")
     asyncio.create_task(save_data(data, review, bot))
     await state.clear()
 
 
-@user_router.message(F.text == "Мои отзывы")
-async def view_reviews(message: types.Message):
+@user_router.message(F.text == "Мои отзывы 📜")
+@user_router.message(Command("view_reviews"))
+async def get_user_reviews(message: types.Message):
     user_id = message.from_user.id
-    user_reviews = await get_user_reviews(user_id)
+    user_reviews = await db.get_user_reviews(user_id)
     
     if not user_reviews:
-        await message.answer("У вас пока нет отзывов.")
+        await message.answer("У вас пока нет отзывов. Оставьте свой первый отзыв! 📝")
         return
     
-    response = "Ваши отзывы:\n\n"
+    response = "📜 Ваши отзывы:\n\n"
     for i, review in enumerate(user_reviews, 1):
         response += f"Отзыв №{i} от {review.created_at.strftime('%d.%m.%Y %H:%M')} | Оценка: {review.rating} | {review.text}\n\n"
     
     await message.answer(response)
 
 
-@user_router.message(F.text == "Удалить отзыв")
-async def process_delete_review(message: types.Message):
+@user_router.message(F.text == "Удалить отзыв ❌")
+@user_router.message(Command("delete_review"))
+async def delete_review(message: types.Message):
     user_id = message.from_user.id
-    user_reviews = await get_user_reviews(user_id)
+    user_reviews = await db.get_user_reviews(user_id)
     
     if not user_reviews:
         await message.answer("У вас нет отзывов для удаления.")
@@ -162,30 +165,31 @@ async def process_delete_review(message: types.Message):
 @user_router.callback_query(F.data.startswith("del_"))
 async def confirm_delete(callback: types.CallbackQuery):
     review_id = int(callback.data.split("_")[1])
-    review = await get_review(review_id)
+    review = await db.get_review(review_id)
     
     if not review:
-        await callback.message.answer("Этот отзыв не найден")
+        await callback.message.answer("Этот отзыв не найден.")
         await callback.answer()
         return
     
     try:
-        await delete_review(review)
-        await callback.message.answer(f"Отзыв успешно удалён!")
+        await db.delete_review(review)
+        await callback.message.answer(f"Отзыв успешно удалён! 🗑️")
         logger.info(f"Пользователь {callback.from_user.id} удалил отзыв {review_id}")
     except Exception as e:
-        await callback.message.answer("Ошибка при удалении отзыва.")
+        await callback.message.answer("Ошибка при удалении отзыва. Попробуйте позже. ⚠️")
         logger.error(f"Ошибка при удалении отзыва {review_id}: {e}")
     
     await callback.answer()
 
 
+@user_router.message(Command("menu"))
 async def choose_action(message: types.Message):
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="Оставить отзыв")],
-            [KeyboardButton(text="Удалить отзыв")],
-            [KeyboardButton(text="Мои отзывы")]
+            [KeyboardButton(text="Оставить отзыв 📝")],
+            [KeyboardButton(text="Удалить отзыв ❌")],
+            [KeyboardButton(text="Мои отзывы 📜")]
         ],
         resize_keyboard=True
     )
@@ -200,32 +204,41 @@ async def save_data(data: dict, review: io.BytesIO | str, bot: Bot):
     
     review_tonality = await get_tonality(review_text)
 
-    new_review = Review(
+    new_review = db.Review(
         user_id=data["user_id"],
+        user_name=data["user_name"],
         rating=data["rating"],
         text=review_text,
         tonality=review_tonality,
         readed=False,
+        answered=False,
         readed_by=None
     )
 
-    await add_review(new_review)
+    await db.add_review(new_review)
 
-    if review_tonality in [ToneEnum.NEG, ToneEnum.VNEG]:
-        message = (
-            f"Новый негативный отзыв!\n\n"
-            f"Пользователь: {data['user_name']}\n"
-            f"ID пользователя: {new_review.user_id}\n"
-            f"Оценка: {new_review.rating}\n"
-            f"Текст: {review_text}\n"
-            f"Дата: {new_review.created_at.strftime('%d.%m.%Y %H:%M')}"
-        )
-        for manager_id in managers:
-            try:
-                await bot.send_message(chat_id=manager_id, text=message)
-                logger.info(f"Отправлено оповещение о негативном отзыве менеджеру {manager_id}")
-            except Exception as e:
-                logger.warning(f"Ошибка при отправке менеджеру {manager_id}: {e}")
+    if review_tonality in [db.ToneEnum.NEG, db.ToneEnum.VNEG] or new_review.rating < 3:
+        await notify_managers_of_negative_review(new_review, bot)
+
+
+async def notify_managers_of_negative_review(review: db.Review, bot: Bot):
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Ответить 👥", callback_data=f"reply_{review.id}")]
+    ])
+    message = (
+        f"🔴 Новый негативный отзыв!\n\n"
+        f"Имя пользователя: {review.user_name}\n"
+        f"ID пользователя: {review.user_id}\n"
+        f"Оценка: {review.rating}\n"
+        f"Текст: {review.text}\n"
+        f"Дата: {review.created_at.strftime('%d.%m.%Y %H:%M')}"
+    )
+    for manager_id in managers:
+        try:
+            await bot.send_message(chat_id=manager_id, text=message, reply_markup=keyboard)
+            logger.info(f"Отправлено оповещение о негативном отзыве менеджеру {manager_id}")
+        except Exception as e:
+            logger.warning(f"Ошибка при отправке менеджеру {manager_id}: {e}")
 
 
 @user_router.message()
@@ -233,6 +246,12 @@ async def default_cmd(message: types.Message):
     await message.answer(message.text)
 
 
-# вывод мои отзывы при удалении отзыва
-# роутер
-# добавить команду "о нас"
+async def set_user_commands(bot: Bot):
+    commands = [
+        BotCommand(command="start", description="Перезапустить бота"),
+        BotCommand(command="menu", description="Открыть главное меню"),
+        BotCommand(command="add_review", description="Оставить отзыв"),
+        BotCommand(command="delete_review", description="Удалить отзыв"),
+        BotCommand(command="view_reviews", description="Посмотреть свои отзывы")
+    ]
+    await bot.set_my_commands(commands)
