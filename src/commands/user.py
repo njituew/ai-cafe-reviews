@@ -13,7 +13,7 @@ from src.logger import logger
 from src.utils import set_commands
 import db.utils as db
 
-with open("managers.json", "r") as f:
+with open("managers.json", "r", encoding="utf-8") as f:
     managers_data = json.load(f)
     managers = [mgr["chat_id"] for mgr in managers_data["managers"]]
 

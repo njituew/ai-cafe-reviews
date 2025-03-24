@@ -21,7 +21,7 @@ def get_bot_token() -> str:
 
 async def load_managers() -> None:
     managers = []
-    with open("managers.json", "r") as f:
+    with open("managers.json", "r", encoding="utf-8") as f:
         data = json.load(f)["managers"]
         managers = [
             {"chat_id": manager["chat_id"], "name": manager["name"]} for manager in data

@@ -41,7 +41,7 @@ async def distribution_of_ratings() -> BytesIO:
     return buffer
 
 
-async def dynamics_of_satisfaction(list_of_grades: list[float]) -> BytesIO:
+async def dynamics_of_satisfaction() -> BytesIO:
     """
     Показывает как изменялась средняя оценка со временем.
     Период расчётов - последние k дней, где k - длина списка.
@@ -49,17 +49,19 @@ async def dynamics_of_satisfaction(list_of_grades: list[float]) -> BytesIO:
     Args:
         list_of_grades (list[int]): список, где индекс - это день, значение - средняя оценка в этот день.
     """
-    end_date = datetime.now()
+    end_date = date.today()
     start_date = date.today() - timedelta(days=30)
 
-
     x = [start_date + timedelta(days = i + 1) for i in range((end_date - start_date).days)]
-    y = list_of_grades
+
+    list_of_grades = [0] * (end_date - start_date).days
+    for day in (end_date - start_date).days:
+        list_of_grades = average_grade_for_date(x[day])
 
     sns.set_style("darkgrid")
 
     plt.figure(figsize=(6, 4))
-    sns.lineplot(x=x, y=y, marker="o")
+    sns.lineplot(x=x, y=list_of_grades, marker="o")
 
     plt.title("График изменения средней оценки")
     plt.xlabel("Дата")
@@ -76,3 +78,11 @@ async def dynamics_of_satisfaction(list_of_grades: list[float]) -> BytesIO:
     plt.close()
 
     return buffer
+
+
+def average_grade_for_date(day: date) -> float:
+    sum_of_ratings = 0
+    today_reviews = get_reviews_by_time(datetime(day.year, day.month, day.day, 0, 0, 0), datetime(day.year, day.month, day.day, 23, 59, 59))
+    for review in today_reviews:
+        sum_of_ratings += review.reating
+    return sum_of_ratings / len(today_reviews)
