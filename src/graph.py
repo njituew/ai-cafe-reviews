@@ -17,7 +17,7 @@ async def distribution_of_ratings() -> BytesIO:
         list_of_ratings (list[int]): список, где индекс - это оценка (-1), значение - количество отзывов с такой оценкой.
     """
     list_of_ratings = [0] * 5
-    list_of_reviews = await get_reviews_by_time(date(1, 1, 1), datetime.now())
+    list_of_reviews = await get_reviews_by_time(datetime(1, 1, 1, 0, 0, 0), datetime.now())
     for review in list_of_reviews:
         list_of_ratings[review.rating - 1] += 1
     x = [i for i in range(1, 6)]
@@ -50,7 +50,7 @@ async def dynamics_of_satisfaction(list_of_grades: list[float]) -> BytesIO:
         list_of_grades (list[int]): список, где индекс - это день, значение - средняя оценка в этот день.
     """
     end_date = datetime.now()
-    start_date = date.today() - timedelta()
+    start_date = date.today() - timedelta(days=30)
 
 
     x = [start_date + timedelta(days = i + 1) for i in range((end_date - start_date).days)]
