@@ -26,6 +26,7 @@ class Manager(BaseModel):
 
 class Review(BaseModel):
     user_id: Mapped[int]
+    user_name: Mapped[str]
     rating: Mapped[int]
     text: Mapped[str]
     tonality: Mapped[ToneEnum]

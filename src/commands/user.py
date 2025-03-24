@@ -206,6 +206,7 @@ async def save_data(data: dict, review: io.BytesIO | str, bot: Bot):
 
     new_review = db.Review(
         user_id=data["user_id"],
+        user_name=data["user_name"],
         rating=data["rating"],
         text=review_text,
         tonality=review_tonality,
@@ -216,17 +217,17 @@ async def save_data(data: dict, review: io.BytesIO | str, bot: Bot):
 
     await db.add_review(new_review)
 
-    if review_tonality in [db.ToneEnum.NEG, db.ToneEnum.VNEG]:
-        await notify_managers_of_negative_review(new_review, data["user_name"], bot)
+    if review_tonality in [db.ToneEnum.NEG, db.ToneEnum.VNEG] or new_review.rating < 3:
+        await notify_managers_of_negative_review(new_review, bot)
 
 
-async def notify_managers_of_negative_review(review: db.Review, user_name: str, bot: Bot):
+async def notify_managers_of_negative_review(review: db.Review, bot: Bot):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Ответить 👥", callback_data=f"reply_{review.id}")]
     ])
     message = (
         f"🔴 Новый негативный отзыв!\n\n"
-        f"Пользователь: {user_name}\n"
+        f"Имя пользователя: {review.user_name}\n"
         f"ID пользователя: {review.user_id}\n"
         f"Оценка: {review.rating}\n"
         f"Текст: {review.text}\n"
