@@ -102,7 +102,7 @@ async def number_of_reviews() -> BytesIO:
     global MOSCOW_TZ
     start_date = datetime.now(MOSCOW_TZ) - timedelta(days=30)
 
-    x = [start_date + timedelta(days = i + 1) for i in range(30)]
+    x = [start_date.date() + timedelta(days = i + 1) for i in range(30)]
     y = []
 
     for day in x:
