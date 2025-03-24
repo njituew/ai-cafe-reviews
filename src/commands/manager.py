@@ -60,6 +60,7 @@ async def manager_panel(message: types.Message):
     await message.answer("Панель менеджера открыта", reply_markup=keyboard)
 
 
+@manager_router.message(Command("dashboard"))
 @manager_router.message(F.text == "Дашборд 💻")
 async def dashboard_panel(message: types.Message):
     """
@@ -93,6 +94,7 @@ async def satisfaction_dynamics(callback_query: types.CallbackQuery):
     await callback_query.answer()
 
 
+@manager_router.message(Command("unread_reviews"))
 @manager_router.message(F.text == "Непрочитанные отзывы 🗣️")
 @manager_router.callback_query(F.data.startswith("unread_reviews_page_"))
 async def unread_reviews(message_or_callback: types.Message | types.CallbackQuery):
@@ -144,9 +146,9 @@ async def review(callback_query: types.CallbackQuery):
     
     message_text = (
         f"ID: {review.id}\n"
-        f"Пользователь: {review.user_id}\n"
+        f"Пользователь: {review.user_name} (ID: {review.user_id})\n"
         f"Оценка: {review.rating}\n"
-        f"Тональность: {review.tonality.value}\n" # ??? мб убрать
+        f"Тональность: {review.tonality.value}\n"
         f"Текст: {review.text}\n"
         f"Прочитан: {'Да' if review.readed else 'Нет'}\n"
         f"Отвечен: {'Да' if review.answered else 'Нет'}"
@@ -276,10 +278,11 @@ async def end_manager_reply(message: types.Message, state: FSMContext, bot: Bot)
     await state.clear()
 
 
+@manager_router.message(Command("manager_statistics"))
 @manager_router.message(F.text == "Статистика менеджеров 👩‍💼")
 async def manager_profile(message: types.Message):
     """
-    Открывает профиль менеджера
+    Открывает статистику менеджеров
 
     Args:
         message (types.Message): сообщение
