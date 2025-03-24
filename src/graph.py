@@ -106,7 +106,7 @@ async def number_of_reviews() -> BytesIO:
     y = []
 
     for day in x:
-        cur_len = len(get_reviews_by_time(datetime(day.year, day.month, day.day, 0, 0, 0),  datetime(day.year, day.month, day.day, 23, 59, 59)))
+        cur_len = len(await get_reviews_by_time(datetime(day.year, day.month, day.day, 0, 0, 0),  datetime(day.year, day.month, day.day, 23, 59, 59)))
         y.append(cur_len)
     
     sns.set_style("darkgrid")
@@ -115,10 +115,12 @@ async def number_of_reviews() -> BytesIO:
     sns.barplot(x=x, y=y, hue=x, legend=False, palette="crest")
 
     plt.ylim(bottom=0)
-    plt.title("График количество отзывов")
+    plt.title("График количества отзывов")
     plt.xlabel("Дата")
     plt.ylabel("Количество отзывов")
     plt.gca().yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+    plt.xticks(rotation=45)
+    plt.tight_layout()
 
     buffer = BytesIO()
     plt.savefig(buffer, format='png', dpi=100)

@@ -8,7 +8,6 @@ from aiogram.types import (
 
 from db.utils import is_manager
 from src.logger import logger
-# from src.graph import *
 import src.graph as graph
 import db.utils as db
 import src.ai_utils as ai
@@ -107,6 +106,22 @@ async def graph_dynamics_of_satisfaction(callback_query: types.CallbackQuery):
     await callback_query.message.answer_photo(
         photo=BufferedInputFile(buffer.getvalue(), filename="graph.png"),
         caption="Динамика удовлетворённости 📈"
+    )
+    await callback_query.answer()
+    
+
+@manager_router.callback_query(F.data == "graph_number_of_reviews")
+async def graph_number_of_reviews(callback_query: types.CallbackQuery):
+    """
+    Отображает распределение оценок
+
+    Args:
+        message (types.Message): сообщение
+    """
+    buffer = await graph.number_of_reviews()
+    await callback_query.message.answer_photo(
+        photo=BufferedInputFile(buffer.getvalue(), filename="graph.png"),
+        caption="Количество отзывов 📊"
     )
     await callback_query.answer()
 
