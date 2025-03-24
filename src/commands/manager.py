@@ -10,12 +10,14 @@ from db.utils import is_manager
 from src.logger import logger
 from src.graph import *
 import db.utils as db
+import src.ai_utils as ai
 
 from datetime import datetime, timedelta
 
 
 class ManagerForm(StatesGroup):
     waiting_for_manager_reply = State()
+    waiting_for_custom_query = State()
 
 
 class ManagerCheckMiddleware(BaseMiddleware):
@@ -69,7 +71,8 @@ async def dashboard_panel(message: types.Message):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Распределение оценок 🌟", callback_data="graph_distribution_of_ratings")],
         [InlineKeyboardButton(text="Динамика удовлетворённости 📈", callback_data="graph_dynamics_of_satisfaction")],
-        [InlineKeyboardButton(text="Количество отзывов 📊", callback_data="graph_number_of_reviews")]
+        [InlineKeyboardButton(text="Количество отзывов 📊", callback_data="graph_number_of_reviews")],
+        [InlineKeyboardButton(text="Произвольный запрос", callback_data="custom_query")]
     ])
     await message.answer("Выберите график:", reply_markup=keyboard)
 
@@ -290,3 +293,18 @@ async def manager_profile(message: types.Message):
         stats_text += f"👤 {manager.name} (ID: {manager.user_id}) — {activity} обработанных отзывов\n"
 
     await message.answer(stats_text)
+
+
+@manager_router.callback_query(F.data == "custom_query")
+async def custom_query(callback_query: types.CallbackQuery, state: FSMContext):
+    await callback_query.message.answer("Введите запрос:")
+    await state.set_state(ManagerForm.waiting_for_custom_query)
+    await callback_query.answer()
+    
+
+@manager_router.message(ManagerForm.waiting_for_custom_query)
+async def process_custom_query(message: types.Message, state: FSMContext):
+    query = message.text
+
+    await message.answer(await ai.custom_query(query))
+    await state.clear()

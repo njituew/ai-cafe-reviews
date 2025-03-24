@@ -133,4 +133,5 @@ async def get_manager_info(start: datetime, end: datetime, session: AsyncSession
         )
         activity.append(mngr_activ)
         
-    return list(zip(managers, activity))
+    return zip(managers, activity)
+    
