@@ -8,7 +8,8 @@ from aiogram.types import (
 
 from db.utils import is_manager
 from src.logger import logger
-from src.graph import *
+# from src.graph import *
+import src.graph as graph
 import db.utils as db
 import src.ai_utils as ai
 
@@ -79,17 +80,33 @@ async def dashboard_panel(message: types.Message):
 
 
 @manager_router.callback_query(F.data == "graph_distribution_of_ratings")
-async def satisfaction_dynamics(callback_query: types.CallbackQuery):
+async def graph_distribution_of_ratings(callback_query: types.CallbackQuery):
     """
     Отображает распределение оценок
 
     Args:
         message (types.Message): сообщение
     """
-    buffer = await distribution_of_ratings()
+    buffer = await graph.distribution_of_ratings()
     await callback_query.message.answer_photo(
         photo=BufferedInputFile(buffer.getvalue(), filename="graph.png"),
         caption="Распределение оценок 🌟"
+    )
+    await callback_query.answer()
+    
+
+@manager_router.callback_query(F.data == "graph_dynamics_of_satisfaction")
+async def graph_dynamics_of_satisfaction(callback_query: types.CallbackQuery):
+    """
+    Отображает динамику удовлетворённости
+
+    Args:
+        message (types.Message): сообщение
+    """
+    buffer = await graph.dynamics_of_satisfaction()
+    await callback_query.message.answer_photo(
+        photo=BufferedInputFile(buffer.getvalue(), filename="graph.png"),
+        caption="Динамика удовлетворённости 📈"
     )
     await callback_query.answer()
 
