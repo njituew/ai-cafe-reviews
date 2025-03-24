@@ -7,7 +7,6 @@ import matplotlib.dates as mdates
 from db.utils import get_reviews_by_time
 from io import BytesIO
 from datetime import date, timedelta, datetime
-from datetime import date, timedelta, datetime
 
 
 async def distribution_of_ratings() -> BytesIO:
@@ -26,7 +25,6 @@ async def distribution_of_ratings() -> BytesIO:
     sns.set_style("darkgrid")
 
     plt.figure(figsize=(6, 4))
-    sns.barplot(x=x, y=list_of_ratings, hue=x, legend=False, palette="crest")
     sns.barplot(x=x, y=list_of_ratings, hue=x, legend=False, palette="crest")
 
     plt.ylim(bottom=0)
@@ -50,16 +48,9 @@ async def dynamics_of_satisfaction(list_of_grades: list[float]) -> BytesIO:
 
     Args:
         list_of_grades (list[int]): список, где индекс - это день, значение - средняя оценка в этот день.
-        list_of_grades (list[int]): список, где индекс - это день, значение - средняя оценка в этот день.
     """
     end_date = datetime.now()
     start_date = date.today() - timedelta()
-
-
-
-    end_date = datetime.now()
-    start_date = date.today() - timedelta()
-
 
 
     x = [start_date + timedelta(days = i + 1) for i in range((end_date - start_date).days)]
