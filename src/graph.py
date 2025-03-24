@@ -49,14 +49,14 @@ async def dynamics_of_satisfaction() -> BytesIO:
     Args:
         list_of_grades (list[int]): список, где индекс - это день, значение - средняя оценка в этот день.
     """
-    end_date = date.today()
+    end_date = datetime.now()
     start_date = date.today() - timedelta(days=30)
 
-    x = [start_date + timedelta(days = i + 1) for i in range((end_date - start_date).days)]
+    x = [start_date + timedelta(days = i) for i in range(30)]
 
-    list_of_grades = [0] * (end_date - start_date).days
-    for day in (end_date - start_date).days:
-        list_of_grades = average_grade_for_date(x[day])
+    list_of_grades = [0] * 30
+    for day_index in range(30):
+        list_of_grades[day_index] = await average_grade_for_date(x[day_index])
 
     sns.set_style("darkgrid")
 
@@ -80,9 +80,15 @@ async def dynamics_of_satisfaction() -> BytesIO:
     return buffer
 
 
-def average_grade_for_date(day: date) -> float:
+async def average_grade_for_date(day: date) -> float:
     sum_of_ratings = 0
     today_reviews = get_reviews_by_time(datetime(day.year, day.month, day.day, 0, 0, 0), datetime(day.year, day.month, day.day, 23, 59, 59))
     for review in today_reviews:
-        sum_of_ratings += review.reating
-    return sum_of_ratings / len(today_reviews)
+        sum_of_ratings += review.rating
+    
+    try:
+        result = sum_of_ratings / len(today_reviews)
+    except ZeroDivisionError:
+        retult = 0
+    
+    return result
