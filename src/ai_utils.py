@@ -18,7 +18,7 @@ app_config = load_config()
 device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 tonality_pipe = pipeline("text-classification", model="tabularisai/multilingual-sentiment-analysis", device=device)
 
-llm = ChatGroq(model="llama-3.3-70b-specdec", temperature=0)
+llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0)
 
 recognize_client = Groq()
 recognize_model = 'whisper-large-v3-turbo'
